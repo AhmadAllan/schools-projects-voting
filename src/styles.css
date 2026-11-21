@@ -10,7 +10,7 @@
   --primary-hover: #3a2718;
   --on-primary: #ffffff;
   --border: #d8c3a4;
-  --border-strong: #9d8154;
+  --border-strong: #977d51;
   --danger: #8f4136;
   --danger-bg: #f2dcd7;
   --ok-bg: #dde8d4;
@@ -52,6 +52,7 @@ button {
 @media (prefers-reduced-motion: no-preference) {
   button:active:not(:disabled) { scale: .97; }
 }
+button:disabled { opacity: .5; cursor: not-allowed; }
 
 /* Text controls (checkboxes/radios keep native accent styling). */
 input:not([type="checkbox"], [type="radio"]), select, textarea {

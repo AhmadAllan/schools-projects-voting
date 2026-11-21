@@ -49,6 +49,7 @@ const PAIRS = [
   ['--ok-text', '--ok-bg', 4.5, 'ok text on ok-bg'],
   ['--warn-text', '--warn-bg', 4.5, 'warn text on warn-bg'],
   ['--border-strong', '--surface', 3, 'border-strong vs surface'],
+  ['--border-strong', '--bg', 3, 'border-strong vs bg'],
   ['--ring', '--bg', 3, 'ring vs bg'],
   ['--primary', '--surface', 3, 'primary vs surface'],
 ];
