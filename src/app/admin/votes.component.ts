@@ -37,7 +37,7 @@ interface VoteRow {
 
     @if (error()) { <p class="error">{{ error() }}</p> }
 
-    <table>
+    <table class="admin-table">
       <thead><tr><th>القسم</th><th>المشروع</th><th>أصوات رقمية</th><th>أصوات ورقية</th><th>الإجمالي النهائي</th><th>عرض في الإعلان</th></tr></thead>
       <tbody>
         @for (row of rows(); track row.id) {
@@ -84,21 +84,16 @@ interface VoteRow {
   </main>`,
   styles: [`
     .votes-page{max-width:1100px;margin:auto;padding:1rem}
-    .votes-page nav{display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem}
-    .votes-page nav a{padding:.6rem .9rem;border:1px solid #91aaa2;border-radius:.5rem}
-    .hint{max-width:70ch;line-height:1.7;color:#33564c}
+    .hint{max-width:70ch;line-height:1.7;color:var(--text-muted)}
     .source{display:grid;gap:.5rem;max-width:28rem;margin:1.25rem 0}
-    .source select{min-height:56px;padding:.5rem;border:1px solid #91aaa2;border-radius:.5rem}
-    table{width:100%;border-collapse:collapse;background:white}
-    th,td{padding:.75rem;border-bottom:1px solid #bdd0c9;text-align:start;vertical-align:middle}
-    input[type=number]{width:7rem;min-height:56px;padding:.5rem;border:1px solid #91aaa2;border-radius:.5rem}
+    .source select{min-height:56px}
+    input[type=number]{width:7rem;min-height:56px}
     .check{display:inline-flex;align-items:center;gap:.5rem;min-height:56px}
-    .manual{margin-top:2rem;padding-top:1.5rem;border-top:2px solid #bdd0c9}
+    .manual{margin-top:2rem;padding-top:1.5rem;border-top:2px solid var(--border)}
     .manual-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-top:1rem}
     .manual-grid label{display:grid;gap:.5rem}
-    .manual-grid select{min-height:56px;padding:.5rem;border:1px solid #91aaa2;border-radius:.5rem}
-    .error{color:#9b1c1c}
-    @media(max-width:700px){table{display:block;overflow-x:auto;white-space:nowrap}}
+    .manual-grid select{min-height:56px}
+    .error{color:var(--danger)}
   `]
 })
 export class VotesComponent {

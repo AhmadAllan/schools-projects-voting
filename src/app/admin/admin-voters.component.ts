@@ -44,8 +44,7 @@ import { channelLabel, filterVoters, formatDateTime } from './admin-helpers';
       </tbody>
     </table>
   </main>`,
-  styles: `.search { display: grid; gap: .4rem; max-width: 320px; margin: 1rem 0; }
-    .search input { min-height: 48px; padding: .4rem .6rem; border: 1px solid #91aaa2; border-radius: .4rem; }`,
+  styles: `.search { display: grid; gap: .4rem; max-width: 320px; margin: 1rem 0; }`,
 })
 export class AdminVotersComponent {
   private api = inject(ApiService);

@@ -76,8 +76,7 @@ const SOURCE_LABELS: Record<ResultSource, string> = {
   styles: `.actions { display: flex; gap: .75rem; flex-wrap: wrap; margin: 1rem 0; }
     .section-block { margin-top: 2rem; }
     .section-block header { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
-    .winner-pick { display: grid; gap: .4rem; max-width: 420px; margin: .75rem 0; }
-    .winner-pick select { min-height: 48px; padding: .4rem .6rem; border: 1px solid #91aaa2; border-radius: .4rem; }`,
+    .winner-pick { display: grid; gap: .4rem; max-width: 420px; margin: .75rem 0; }`,
 })
 export class AdminResultsComponent {
   private api = inject(ApiService);

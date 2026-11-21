@@ -60,10 +60,9 @@ import { AdminNavComponent } from './admin-nav.component';
       </form>
     </dialog>
   </main>`,
-  styles: `.danger-zone { margin-top: 2rem; padding: 1rem; border: 1px solid #f0b7b7; border-radius: .75rem; background: #fff; max-width: 560px; }
-    .danger-zone p { color: #9b1c1c; }
+  styles: `.danger-zone { margin-top: 2rem; padding: 1rem; border: 1px solid var(--danger); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); max-width: 560px; }
+    .danger-zone p { color: var(--danger); }
     dialog label { display: grid; gap: .4rem; margin: .75rem 0; }
-    dialog select, dialog input { min-height: 48px; padding: .4rem .6rem; border: 1px solid #91aaa2; border-radius: .4rem; }
     .dialog-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1rem; }`,
 })
 export class AdminSettingsComponent {
