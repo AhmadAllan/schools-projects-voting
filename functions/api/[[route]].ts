@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { constantTimeEqual, issueAdminSession, verifyAdminSession, getVotingStatus } from './auth';
 import { validateSubmission, normalizedFullName } from './votes';
 import { VoteRequest } from './types';
+import { getPublicBallot, publicResultsGate, withCacheHeaders } from './public';
 
 interface Bindings { DB: D1Database; ADMIN_PASSWORD: string; SESSION_SECRET: string }
 const app = new Hono<{ Bindings: Bindings }>();
@@ -36,6 +37,18 @@ app.get('/api/admin/me', async (c) => {
 });
 
 app.get('/api/public/status', async (c) => json(await getVotingStatus(c.env.DB)));
+app.get('/api/public/ballot', async (c) => json(await getPublicBallot(c.env.DB)));
+app.get('/api/public/results', async (c) => {
+  const published = await c.env.DB.prepare('SELECT value FROM settings WHERE key=?').bind('results_published').first<{value:string}>();
+  const gate = publicResultsGate(published?.value ?? '0');
+  if (!gate.allowed) return json({ error: gate.code, message: 'النتائج غير منشورة بعد' }, 403);
+  const ranking = await c.env.DB.prepare(`SELECT se.id AS section_id,se.name AS section_name,p.id AS project_id,p.name AS project_name,p.image_id,p.image_url,
+    sc.name AS school_name, COUNT(v.id) AS votes
+    FROM sections se JOIN projects p ON p.section_id=se.id JOIN schools sc ON sc.id=p.school_id
+    LEFT JOIN votes v ON v.project_id=p.id AND v.voter_id IN (SELECT id FROM voters WHERE voided=0)
+    WHERE se.is_active=1 AND p.is_active=1 GROUP BY se.id,p.id ORDER BY se.sort_order ASC,votes DESC,p.id ASC`).all();
+  return new Response(JSON.stringify(ranking.results), { headers: withCacheHeaders() });
+});
 
 async function submitVote(c: any, channel: 'qr' | 'tablet') {
   const body = await c.req.json<VoteRequest>().catch(() => null);
@@ -68,6 +81,14 @@ async function submitVote(c: any, channel: 'qr' | 'tablet') {
   await c.env.DB.batch(statements);
   return json({ error: 'OK', message: 'تم تسجيل صوتك' }, 201);
 }
+
+app.get('/api/images/:id', async (c) => {
+  const id = Number(c.req.param('id'));
+  if (!Number.isInteger(id)) return json({ error: 'NOT_FOUND', message: 'الصورة غير موجودة' }, 404);
+  const image = await c.env.DB.prepare('SELECT mime,data FROM images WHERE id=?').bind(id).first<{ mime: string; data: ArrayBuffer }>();
+  if (!image) return json({ error: 'NOT_FOUND', message: 'الصورة غير موجودة' }, 404);
+  return new Response(image.data, { headers: { 'content-type': image.mime, 'cache-control': 'public, max-age=31536000, immutable' } });
+});
 
 app.post('/api/votes', (c) => submitVote(c, 'qr'));
 app.post('/api/kiosk/votes', async (c) => {
