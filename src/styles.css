@@ -1,4 +1,31 @@
 :root {
+  /* Espresso & Cream design tokens — the only hardcoded colors in the repo. */
+  --bg: #efe6d5;
+  --surface: #fffbf2;
+  --surface-tint: #f0e6d2;
+  --surface-selected: #f7ecda;
+  --text: #2b1d12;
+  --text-muted: #6d5642;
+  --primary: #4a3222;
+  --primary-hover: #3a2718;
+  --on-primary: #ffffff;
+  --border: #d8c3a4;
+  --border-strong: #9d8154;
+  --danger: #8f4136;
+  --danger-bg: #f2dcd7;
+  --ok-bg: #dde8d4;
+  --ok-text: #42603a;
+  --warn-bg: #f1e2c2;
+  --warn-text: #77530e;
+  --ring: #4a3222;
+  --radius: .75rem;
+  --radius-lg: 1rem;
+  --radius-pill: 999px;
+  --shadow-sm: 0 2px 6px rgba(74, 50, 34, .08);
+  --shadow-md: 0 4px 14px rgba(74, 50, 34, .14);
+  --shadow-lg: 0 8px 24px rgba(74, 50, 34, .18);
+  color-scheme: light;
+  accent-color: var(--primary);
   font-family: 'Cairo', 'Noto Kufi Arabic', Tahoma, Arial, sans-serif;
   color: #173b35;
   background: #f5faf8;
