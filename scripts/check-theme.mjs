@@ -2,7 +2,7 @@
 // Theme guard: verifies the espresso-cream design tokens in src/styles.css.
 // Contract: exits 0 and prints "theme OK" when every token exists and every
 // contrast pair passes; exits 1 with a list of failures otherwise.
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
 const rootMatch = css.match(/:root\s*\{([^}]*)\}/);
@@ -54,6 +54,24 @@ const PAIRS = [
 ];
 
 const failures = [];
+
+// Component scan: no hardcoded colors anywhere in src/app — tokens only.
+// (Hexes are legal solely inside the :root token block of src/styles.css.)
+function walk(dir) {
+  const url = new URL(dir, import.meta.url);
+  return readdirSync(url, { withFileTypes: true }).flatMap((entry) => {
+    const path = `${dir}/${entry.name}`;
+    return entry.isDirectory() ? walk(path) : entry.name.endsWith('.ts') ? [path] : [];
+  });
+}
+for (const file of walk('../src/app')) {
+  const source = readFileSync(new URL(file, import.meta.url), 'utf8');
+  for (const [index, line] of source.split('\n').entries()) {
+    if (/#[\da-fA-F]{3,8}\b/.test(line)) failures.push(`${file}:${index + 1}: hardcoded hex color → ${line.trim()}`);
+    if (/background[^;:]*[:=]\s*['"]?white\b/i.test(line)) failures.push(`${file}:${index + 1}: background white literal → ${line.trim()}`);
+  }
+}
+
 for (const name of REQUIRED) {
   if (!(name in tokens)) failures.push(`missing token: ${name}`);
 }
