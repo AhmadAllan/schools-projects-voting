@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -7,6 +7,7 @@ import { ResultSource } from '../core/models';
 
 interface VoteRow {
   id: number;
+  section_id: number;
   name: string;
   section_name: string;
   school_name: string;
@@ -63,6 +64,23 @@ interface VoteRow {
         }
       </tbody>
     </table>
+
+    <section class="manual">
+      <h2>الفائز اليدوي لكل قسم</h2>
+      <p>يُستخدم هذا الاختيار عندما يكون مصدر الترتيب والإعلان «اختيار يدوي للإدارة».</p>
+      <div class="manual-grid">
+        @for (section of sections(); track section.id) {
+          <label>{{ section.name }}
+            <select [ngModel]="winners()[section.id] ?? null" (ngModelChange)="setWinner(section.id, $event)">
+              <option [ngValue]="null">بدون فائز</option>
+              @for (project of section.projects; track project.id) {
+                <option [ngValue]="project.id">{{ project.name }}</option>
+              }
+            </select>
+          </label>
+        }
+      </div>
+    </section>
   </main>`,
   styles: [`
     .votes-page{max-width:1100px;margin:auto;padding:1rem}
@@ -75,6 +93,10 @@ interface VoteRow {
     th,td{padding:.75rem;border-bottom:1px solid #bdd0c9;text-align:start;vertical-align:middle}
     input[type=number]{width:7rem;min-height:56px;padding:.5rem;border:1px solid #91aaa2;border-radius:.5rem}
     .check{display:inline-flex;align-items:center;gap:.5rem;min-height:56px}
+    .manual{margin-top:2rem;padding-top:1.5rem;border-top:2px solid #bdd0c9}
+    .manual-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-top:1rem}
+    .manual-grid label{display:grid;gap:.5rem}
+    .manual-grid select{min-height:56px;padding:.5rem;border:1px solid #91aaa2;border-radius:.5rem}
     .error{color:#9b1c1c}
     @media(max-width:700px){table{display:block;overflow-x:auto;white-space:nowrap}}
   `]
@@ -82,18 +104,29 @@ interface VoteRow {
 export class VotesComponent {
   private http = inject(HttpClient);
   readonly rows = signal<VoteRow[]>([]);
+  readonly winners = signal<Record<number, number | undefined>>({});
   readonly source = signal<ResultSource>('digital');
   readonly error = signal('');
+  readonly sections = computed(() => {
+    const groups = new Map<number, { id: number; name: string; projects: VoteRow[] }>();
+    for (const row of this.rows()) {
+      const group = groups.get(row.section_id) ?? { id: row.section_id, name: row.section_name, projects: [] };
+      group.projects.push(row);
+      groups.set(row.section_id, group);
+    }
+    return Array.from(groups.values());
+  });
 
   constructor() { void this.load(); }
 
   async load() {
     try {
       const data = await firstValueFrom(
-        this.http.get<{ source: ResultSource; projects: VoteRow[] }>('/api/admin/votes'),
+        this.http.get<{ source: ResultSource; projects: VoteRow[]; winners: Record<number, number> }>('/api/admin/votes'),
       );
       this.source.set(data.source);
       this.rows.set(data.projects);
+      this.winners.set(data.winners ?? {});
       this.error.set('');
     } catch {
       this.error.set('تعذر تحميل الأصوات. تأكد من تسجيل الدخول.');
@@ -131,6 +164,24 @@ export class VotesComponent {
     } catch {
       row.announce_in_results = announceInResults ? 0 : 1;
       this.error.set('تعذر تحديث حالة الإعلان.');
+    }
+  }
+
+  async setWinner(sectionId: number, projectId: number | null) {
+    try {
+      if (projectId === null) {
+        await firstValueFrom(this.http.delete(`/api/admin/winners/${sectionId}`));
+      } else {
+        await firstValueFrom(this.http.put(`/api/admin/winners/${sectionId}`, { project_id: projectId }));
+      }
+      this.winners.update((winners) => {
+        const next = { ...winners };
+        if (projectId === null) delete next[sectionId];
+        else next[sectionId] = projectId;
+        return next;
+      });
+    } catch {
+      this.error.set('تعذر حفظ الفائز اليدوي.');
     }
   }
 }

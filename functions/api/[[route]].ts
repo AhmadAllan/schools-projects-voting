@@ -149,19 +149,21 @@ app.post('/api/admin/images', async (c) => { if (!await requireAdmin(c)) return 
 app.get('/api/admin/votes', async (c) => {
   if (!await requireAdmin(c)) return json({ error: 'UNAUTHORIZED', message: 'يجب تسجيل الدخول' }, 401);
   const setting = await c.env.DB.prepare('SELECT source FROM result_settings WHERE scope = ?').bind('global').first<{ source: VoteSource }>();
-  const projects = await c.env.DB.prepare(`SELECT p.id,p.name,p.written_votes,p.announce_in_results,
+  const projects = await c.env.DB.prepare(`SELECT p.id,p.section_id,p.name,p.written_votes,p.announce_in_results,
     se.name AS section_name,sc.name AS school_name,
     COUNT(vr.id) AS digital_votes
     FROM projects p JOIN sections se ON se.id=p.section_id JOIN schools sc ON sc.id=p.school_id
     LEFT JOIN votes v ON v.project_id=p.id
     LEFT JOIN voters vr ON vr.id=v.voter_id AND vr.voided=0
-    GROUP BY p.id,p.name,p.written_votes,p.announce_in_results,se.sort_order,se.name,sc.name
+    GROUP BY p.id,p.section_id,p.name,p.written_votes,p.announce_in_results,se.sort_order,se.name,sc.name
     ORDER BY se.sort_order ASC,p.sort_order ASC,p.id ASC`).all();
-  const rows = (projects.results as Array<{ id:number; name:string; section_name:string; school_name:string; written_votes:number; announce_in_results:number; digital_votes:number }>).map((p) => {
+  const rows = (projects.results as Array<{ id:number; section_id:number; name:string; section_name:string; school_name:string; written_votes:number; announce_in_results:number; digital_votes:number }>).map((p) => {
     const source = (setting?.source ?? 'digital') as VoteSource;
     return { ...p, source, final_votes: calculateProjectVotes({ digitalVotes: p.digital_votes, writtenVotes: p.written_votes }, source) };
   });
-  return json({ source: setting?.source ?? 'digital', projects: rows });
+  const winners = await c.env.DB.prepare('SELECT section_id,project_id FROM section_winners').all();
+  const winnerMap = Object.fromEntries((winners.results as Array<{ section_id:number; project_id:number }>).map((row) => [row.section_id, row.project_id]));
+  return json({ source: setting?.source ?? 'digital', projects: rows, winners: winnerMap });
 });
 
 app.put('/api/admin/votes/source', async (c) => {
@@ -219,6 +221,7 @@ app.get('/api/admin/results', async (c) => {
   return json({ source, rows, sections: groupResultsBySection(rows) });
 });
 app.put('/api/admin/winners/:sectionId', async (c) => { if(!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<{project_id:number}>(); await c.env.DB.prepare('INSERT INTO section_winners(section_id,project_id) VALUES (?,?) ON CONFLICT(section_id) DO UPDATE SET project_id=excluded.project_id').bind(Number(c.req.param('sectionId')),body.project_id).run(); return json({error:'OK',message:'تم اختيار الفائز'}); });
+app.delete('/api/admin/winners/:sectionId', async (c) => { if(!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); await c.env.DB.prepare('DELETE FROM section_winners WHERE section_id=?').bind(Number(c.req.param('sectionId'))).run(); return json({error:'OK',message:'تم إلغاء الفائز اليدوي'}); });
 
 async function csvExport(c:any, kind:'results'|'voters') { if(!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); let csv=''; if(kind==='results') csv='القسم,المشروع,المدرسة,الأصوات\r\n'; else csv='الاسم الكامل,القناة,الوقت,مكرر,ملغى\r\n'; return new Response(csvWithBom(csv),{headers:{'content-type':'text/csv; charset=utf-8','content-disposition':`attachment; filename="${kind}.csv"`}}); }
 app.get('/api/admin/export/results.csv',(c)=>csvExport(c,'results')); app.get('/api/admin/export/voters.csv',(c)=>csvExport(c,'voters'));
