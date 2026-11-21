@@ -6,6 +6,7 @@ import { VoteRequest } from './types';
 import { getPublicBallot, publicResultsGate, withCacheHeaders } from './public';
 import { normalizeProjectPatch, normalizeSectionPatch, validateSection, validateImageUpload } from './admin-content';
 import { csvWithBom } from './admin-results';
+import { displayImageUrl } from './db';
 
 interface Bindings { DB: D1Database; ADMIN_PASSWORD: string; SESSION_SECRET: string }
 const app = new Hono<{ Bindings: Bindings }>();
@@ -56,13 +57,13 @@ app.get('/api/public/results', async (c) => {
 
   if (source === 'manual') {
     const winners = await c.env.DB.prepare(`SELECT se.id AS section_id,se.name AS section_name,p.id AS project_id,p.name AS project_name,
-      p.image_url,sc.name AS school_name,0 AS votes
+      p.image_url,p.image_id,sc.name AS school_name,0 AS votes
       FROM section_winners w JOIN sections se ON se.id=w.section_id
       JOIN projects p ON p.id=w.project_id JOIN schools sc ON sc.id=p.school_id
       WHERE se.is_active=1 AND p.is_active=1 ORDER BY se.sort_order ASC,se.id ASC`).all();
     const rows = (winners.results as Array<Record<string, any>>).map((row) => ({
       sectionId: row.section_id, sectionName: row.section_name, projectId: row.project_id,
-      projectName: row.project_name, schoolName: row.school_name, imageUrl: row.image_url,
+      projectName: row.project_name, schoolName: row.school_name, imageUrl: displayImageUrl(row.image_url, row.image_id),
       votes: row.votes, announceInResults: 1,
     }));
     return new Response(JSON.stringify({ source, sections: groupResultsBySection(rows) }), { headers: withCacheHeaders() });
@@ -75,7 +76,7 @@ app.get('/api/public/results', async (c) => {
     WHERE se.is_active=1 AND p.is_active=1 GROUP BY se.id,p.id ORDER BY se.sort_order ASC,p.id ASC`).all();
   const rows = (ranking.results as Array<Record<string, any>>).map((row) => ({
     sectionId: row.section_id, sectionName: row.section_name, projectId: row.project_id,
-    projectName: row.project_name, schoolName: row.school_name, imageUrl: row.image_url,
+    projectName: row.project_name, schoolName: row.school_name, imageUrl: displayImageUrl(row.image_url, row.image_id),
     votes: calculateProjectVotes({ digitalVotes: row.digital_votes, writtenVotes: row.written_votes }, source),
     announceInResults: row.announce_in_results,
   }));
@@ -230,13 +231,13 @@ app.get('/api/admin/results', async (c) => {
 
   if (source === 'manual') {
     const winners = await c.env.DB.prepare(`SELECT se.id AS section_id,se.name AS section_name,p.id AS project_id,p.name AS project_name,
-      p.image_url,sc.name AS school_name,0 AS votes
+      p.image_url,p.image_id,sc.name AS school_name,0 AS votes
       FROM section_winners w JOIN sections se ON se.id=w.section_id
       JOIN projects p ON p.id=w.project_id JOIN schools sc ON sc.id=p.school_id
       WHERE se.is_active=1 AND p.is_active=1 ORDER BY se.sort_order ASC,se.id ASC`).all();
     const rows = (winners.results as Array<Record<string, any>>).map((row) => ({
       sectionId: row.section_id, sectionName: row.section_name, projectId: row.project_id,
-      projectName: row.project_name, schoolName: row.school_name, imageUrl: row.image_url,
+      projectName: row.project_name, schoolName: row.school_name, imageUrl: displayImageUrl(row.image_url, row.image_id),
       votes: row.votes, announceInResults: 1,
     }));
     return json({ source, sections: groupResultsBySection(rows) });
@@ -249,7 +250,7 @@ app.get('/api/admin/results', async (c) => {
     WHERE se.is_active=1 AND p.is_active=1 GROUP BY se.id,p.id ORDER BY se.sort_order ASC,p.id ASC`).all();
   const rows = (ranking.results as Array<Record<string, any>>).map((row) => ({
     sectionId: row.section_id, sectionName: row.section_name, projectId: row.project_id,
-    projectName: row.project_name, schoolName: row.school_name, imageUrl: row.image_url,
+    projectName: row.project_name, schoolName: row.school_name, imageUrl: displayImageUrl(row.image_url, row.image_id),
     votes: calculateProjectVotes({ digitalVotes: row.digital_votes, writtenVotes: row.written_votes }, source),
     announceInResults: row.announce_in_results,
   }));

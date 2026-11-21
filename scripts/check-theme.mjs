@@ -12,12 +12,14 @@ if (rootMatch) {
     tokens[name] = value.trim();
   }
 }
+const cssOutsideRoot = rootMatch ? css.replace(rootMatch[0], '') : css;
 
 const REQUIRED = [
   '--bg', '--surface', '--surface-tint', '--surface-selected',
   '--text', '--text-muted', '--primary', '--primary-hover', '--on-primary',
   '--border', '--border-strong', '--danger', '--danger-bg',
   '--ok-bg', '--ok-text', '--warn-bg', '--warn-text', '--ring',
+  '--ring-soft', '--backdrop', '--shadow-danger-sm', '--shadow-danger-md',
   '--radius', '--radius-lg', '--radius-pill', '--shadow-sm', '--shadow-md', '--shadow-lg',
 ];
 
@@ -56,21 +58,40 @@ const PAIRS = [
 
 const failures = [];
 
-// Component scan: no hardcoded colors anywhere in src/app — tokens only.
-// (Hexes are legal solely inside the :root token block of src/styles.css.)
+// Color-literal patterns that must never appear outside the :root token block.
+const HEX = /#[\da-fA-F]{3,8}\b/;
+const FUNC = /\b(?:rgb|rgba|hsl|hsla)\(/;
+const NAMED = new RegExp(
+  '(?:color|background)[a-z-]*\\s*:\\s*(black|white|red|green|blue|gray|grey|yellow|orange|purple|pink|brown|tan|gold|silver|cream|beige|navy|teal|olive|maroon|coral|salmon|cyan|magenta|violet|chocolate|coffee|wheat|ivory|khaki|linen|turquoise|crimson|azure|indigo|lavender|plum|sienna)\\s*[;\'"}]',
+);
+
+function scan(label, source, checks) {
+  for (const [index, line] of source.split('\n').entries()) {
+    for (const [name, pattern] of checks) {
+      if (pattern.test(line)) failures.push(`${label}:${index + 1}: ${name} → ${line.trim()}`);
+    }
+  }
+}
+
+// 1) src/styles.css outside :root — every color must flow through a token.
+scan('styles.css(outside :root)', cssOutsideRoot, [['hex color', HEX], ['rgb()/hsl() literal', FUNC], ['named color', NAMED]]);
+
+// 2) Components and static assets — same rules.
 function walk(dir) {
   const url = new URL(dir, import.meta.url);
   return readdirSync(url, { withFileTypes: true }).flatMap((entry) => {
     const path = `${dir}/${entry.name}`;
-    return entry.isDirectory() ? walk(path) : entry.name.endsWith('.ts') ? [path] : [];
+    return entry.isDirectory() ? walk(path) : [path];
   });
 }
-for (const file of walk('../src/app')) {
-  const source = readFileSync(new URL(file, import.meta.url), 'utf8');
-  for (const [index, line] of source.split('\n').entries()) {
-    if (/#[\da-fA-F]{3,8}\b/.test(line)) failures.push(`${file}:${index + 1}: hardcoded hex color → ${line.trim()}`);
-    if (/background[^;:]*[:=]\s*['"]?white\b/i.test(line)) failures.push(`${file}:${index + 1}: background white literal → ${line.trim()}`);
-  }
+const checks = [['hex color', HEX], ['rgb()/hsl() literal', FUNC], ['named color', NAMED]];
+const componentFiles = [
+  ...walk('../src/app').filter((f) => f.endsWith('.ts') || f.endsWith('.css')),
+  '../src/index.html',
+  ...walk('../public').filter((f) => /\.(?:html|css|svg|js|txt|json)$/.test(f)),
+];
+for (const file of componentFiles) {
+  scan(file, readFileSync(new URL(file, import.meta.url), 'utf8'), checks);
 }
 
 for (const name of REQUIRED) {
