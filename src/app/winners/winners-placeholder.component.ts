@@ -45,22 +45,23 @@ import { ResultProject, ResultsResponse } from '../core/models';
     }
   </main>`,
   styles: [`
-    .winners{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;gap:2rem;padding:clamp(1rem,4vw,3rem);text-align:center;background:#f7fbf9;color:#102a24}
+    .winners{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;gap:2rem;padding:clamp(1rem,4vw,3rem);text-align:center;background:var(--bg);color:var(--text)}
     .state{font-size:clamp(1.25rem,3vw,2rem)}
-    .error{color:#9b1c1c}
+    .error{color:var(--danger)}
     header h1{font-size:clamp(2rem,6vw,4.5rem);margin:.5rem 0}
-    header small{font-size:clamp(1rem,2vw,1.4rem);color:#4a6b62}
-    .badge{display:inline-block;margin:0;padding:.4rem 1rem;border-radius:999px;background:#d8f3e6;color:#087f5b;font-size:clamp(1rem,2vw,1.4rem)}
-    .badge.tie{background:#fff3bf;color:#8a5a00}
+    header small{font-size:clamp(1rem,2vw,1.4rem);color:var(--text-muted)}
+    .badge{display:inline-block;margin:0;padding:.4rem 1rem;border-radius:var(--radius-pill);background:var(--ok-bg);color:var(--ok-text);font-size:clamp(1rem,2vw,1.4rem)}
+    .badge.tie{background:var(--warn-bg);color:var(--warn-text)}
     .podium{display:grid;grid-template-columns:1fr;gap:1.25rem;max-width:900px;margin:0 auto;width:100%}
     .podium.tied{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));max-width:1200px}
-    .winner-card{display:flex;flex-direction:column;align-items:center;gap:.75rem;padding:clamp(1rem,3vw,2rem);border:2px solid #b9ccc6;border-radius:1.25rem;background:white;box-shadow:0 12px 30px rgba(16,42,36,.08)}
+    .winner-card{display:flex;flex-direction:column;align-items:center;gap:.75rem;padding:clamp(1rem,3vw,2rem);border:2px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-md)}
     .winner-card img{width:100%;max-height:240px;object-fit:contain;border-radius:.75rem}
     .winner-card h2{font-size:clamp(1.5rem,4vw,3rem);margin:0}
-    .winner-card .school{margin:0;color:#4a6b62;font-size:clamp(1rem,2vw,1.4rem)}
-    .winner-card strong{font-size:clamp(1.1rem,2.5vw,1.6rem);color:#087f5b}
+    .winner-card .school{margin:0;color:var(--text-muted);font-size:clamp(1rem,2vw,1.4rem)}
+    .winner-card strong{font-size:clamp(1.1rem,2.5vw,1.6rem);color:var(--primary)}
     footer{display:flex;justify-content:center;gap:1rem;flex-wrap:wrap}
-    footer button{min-height:56px;min-width:8rem;padding:.75rem 1.5rem;border:1px solid #91aaa2;border-radius:.75rem;background:white;font-size:1.1rem;cursor:pointer}
+    footer button{min-height:56px;min-width:8rem;padding:.75rem 1.5rem;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-sm);font-size:1.1rem;cursor:pointer}
+    footer button:hover:not(:disabled){background:var(--surface-tint);box-shadow:var(--shadow-md)}
     footer button:disabled{opacity:.4;cursor:not-allowed}
   `]
 })
