@@ -1,9 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ResultSource } from '../core/models';
+import { AdminNavComponent } from './admin-nav.component';
 
 interface VoteRow {
   id: number;
@@ -19,10 +19,10 @@ interface VoteRow {
 
 @Component({
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, AdminNavComponent],
   template: `
-  <main class="votes-page">
-    <nav><a routerLink="/admin">العودة إلى لوحة الإدارة</a><a routerLink="/winners">شاشة الإعلان</a></nav>
+  <main class="admin-shell votes-page">
+    <app-admin-nav />
     <h1>الأصوات الإلكترونية والورقية</h1>
     <p class="hint">أدخل عدد الأصوات الورقية لكل مشروع، وحدد المشاريع التي تظهر في الإعلان. لا تُضاف الأصوات الورقية إلى الرقمية تلقائيًا؛ اختر مصدر الترتيب أدناه.</p>
 

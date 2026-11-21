@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateSection, validateProjectUrl, validateImageUpload } from './admin-content';
+import { normalizeProjectPatch, normalizeSectionPatch, validateSection, validateProjectUrl, validateImageUpload } from './admin-content';
 describe('إدارة المحتوى', () => {
   it('يتحقق من القسم وعنوان المشروع ونوع الصورة وحجمها', () => {
     expect(validateSection('المواقع').valid).toBe(true);
@@ -9,5 +9,27 @@ describe('إدارة المحتوى', () => {
     expect(validateImageUpload('image/png', 200_000)).toBe(true);
     expect(validateImageUpload('text/plain', 200_000)).toBe(false);
     expect(validateImageUpload('image/jpeg', 301_000)).toBe(false);
+  });
+
+  it('يبني تعديلًا جزئيًا آمنًا للقسم', () => {
+    expect(normalizeSectionPatch({ is_active: false, description: '  وصف جديد  ' })).toEqual({
+      valid: true,
+      value: { description: 'وصف جديد', is_active: 0 },
+    });
+    expect(normalizeSectionPatch({ name: '   ' }).valid).toBe(false);
+    expect(normalizeSectionPatch({ sort_order: 'abc' }).valid).toBe(false);
+  });
+
+  it('يبني تعديلًا جزئيًا آمنًا للمشروع', () => {
+    expect(normalizeProjectPatch({ is_active: true, image_id: 7, url: 'not a url' }).valid).toBe(false);
+    expect(normalizeProjectPatch({ is_active: true, image_id: 7, url: '' })).toEqual({
+      valid: true,
+      value: { is_active: 1, image_id: 7, url: null },
+    });
+    expect(normalizeProjectPatch({ name: '  مشروع  ' })).toEqual({
+      valid: true,
+      value: { name: 'مشروع' },
+    });
+    expect(normalizeProjectPatch({ image_id: 'x' }).valid).toBe(false);
   });
 });

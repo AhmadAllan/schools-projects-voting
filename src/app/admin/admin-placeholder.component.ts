@@ -1,5 +1,33 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-@Component({ standalone:true, imports:[RouterLink], template:`<main class="admin"><h1>لوحة الإدارة</h1><nav><a routerLink="/admin" fragment="sections">الأقسام</a><a routerLink="/admin" fragment="schools">المدارس</a><a routerLink="/admin" fragment="projects">المشاريع</a><a routerLink="/admin/votes">الأصوات</a><a routerLink="/admin" fragment="settings">الإعدادات</a><a routerLink="/admin" fragment="voters">الناخبون</a><a routerLink="/admin" fragment="results">النتائج</a><a routerLink="/winners">شاشة الإعلان</a></nav>
-<section id="votes"><h2>الأصوات الإلكترونية والورقية</h2><p>تُعرض الأعداد رقميًا وورقيًا منفصلين، ويمكن للإدارة اختيار مصدر الترتيب والإعلان من صفحة الأصوات.</p></section></main>`, styles:[`.admin{max-width:1100px;margin:auto;padding:1rem}.admin nav{display:flex;gap:.75rem;flex-wrap:wrap}.admin nav a{padding:.8rem 1rem;border:1px solid #91aaa2}`] })
-export class AdminPlaceholderComponent {}
+import { ApiService } from '../core/api.service';
+import { AdminNavComponent } from './admin-nav.component';
+
+@Component({
+  selector: 'app-admin-home',
+  imports: [RouterLink, AdminNavComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+  <main class="admin-shell">
+    <app-admin-nav />
+    <h1>لوحة الإدارة</h1>
+    @if (event().name) { <p>الحدث الحالي: <strong>{{ event().name }}</strong> — {{ event().state }}</p> }
+    <p>اختر صفحة من الأعلى لإدارة الأقسام والمدارس والمشاريع والأصوات والناخبين والنتائج والإعدادات.</p>
+    <ul>
+      <li><a routerLink="/admin/projects">أضف مشروعًا جديدًا</a> ليظهر في بطاقة التصويت.</li>
+      <li><a routerLink="/admin/votes">الأصوات</a> لإدخال الأصوات الورقية واختيار مصدر الإعلان.</li>
+      <li><a routerLink="/admin/results">النتائج</a> لمراجعة الترتيب والتعادلات ونشر النتائج.</li>
+    </ul>
+  </main>`,
+})
+export class AdminPlaceholderComponent {
+  private api = inject(ApiService);
+  readonly event = signal<{ name: string; state: string }>({ name: '', state: '' });
+
+  constructor() {
+    void Promise.all([this.api.getSettings(), this.api.getStatus()]).then(([settings, status]) => {
+      const labels: Record<string, string> = { open: 'التصويت مفتوح', closed: 'التصويت مغلق', not_started: 'لم يبدأ التصويت' };
+      this.event.set({ name: settings['event_name'] ?? '', state: labels[status.state] ?? status.state });
+    }).catch(() => this.event.set({ name: '', state: '' }));
+  }
+}

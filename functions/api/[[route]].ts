@@ -4,7 +4,7 @@ import { calculateProjectVotes, groupResultsBySection, VoteSource } from './vote
 import { validateSubmission, normalizedFullName } from './votes';
 import { VoteRequest } from './types';
 import { getPublicBallot, publicResultsGate, withCacheHeaders } from './public';
-import { validateSection, validateProjectUrl, validateImageUpload } from './admin-content';
+import { normalizeProjectPatch, normalizeSectionPatch, validateSection, validateImageUpload } from './admin-content';
 import { csvWithBom } from './admin-results';
 
 interface Bindings { DB: D1Database; ADMIN_PASSWORD: string; SESSION_SECRET: string }
@@ -133,12 +133,47 @@ async function requireAdmin(c: any) { return verifyAdminSession(c.req.raw, c.env
 
 app.get('/api/admin/sections', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare('SELECT * FROM sections ORDER BY sort_order ASC,id ASC').all()).results); });
 app.post('/api/admin/sections', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<{name:string;description?:string;sort_order?:number}>(); const check=validateSection(body.name); if(!check.valid) return json({error:'VALIDATION_ERROR',message:'اسم الفئة مطلوب'},422); await c.env.DB.prepare('INSERT INTO sections(name,description,sort_order) VALUES (?,?,?)').bind(check.value,body.description??null,body.sort_order??0).run(); return json({error:'OK',message:'تمت الإضافة'},201); });
+app.put('/api/admin/sections/:id', async (c) => {
+  if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401);
+  const id = Number(c.req.param('id'));
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const patch = normalizeSectionPatch(body ?? {});
+  if (!Number.isInteger(id) || !patch.valid || !Object.keys(patch.value).length) return json({error:'VALIDATION_ERROR',message:'بيانات القسم غير صالحة'},422);
+  const entries = Object.entries(patch.value);
+  const sets = entries.map(([key]) => `${key}=?`).join(', ');
+  await c.env.DB.prepare(`UPDATE sections SET ${sets} WHERE id=?`).bind(...entries.map(([,value]) => value), id).run();
+  return json({error:'OK',message:'تم تحديث القسم'});
+});
 
 app.get('/api/admin/schools', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare('SELECT * FROM schools ORDER BY name').all()).results); });
 app.post('/api/admin/schools', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<{name:string}>(); if(!body.name?.trim()) return json({error:'VALIDATION_ERROR',message:'اسم المدرسة مطلوب'},422); await c.env.DB.prepare('INSERT INTO schools(name) VALUES (?)').bind(body.name.trim()).run(); return json({error:'OK',message:'تمت الإضافة'},201); });
 
-app.get('/api/admin/projects', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare('SELECT * FROM projects ORDER BY sort_order ASC,id ASC').all()).results); });
-app.post('/api/admin/projects', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<{name:string;description:string;section_id:number;school_id:number;url?:string;image_url?:string}>(); if(!body.name?.trim()||!body.description?.trim()||!validateProjectUrl(body.url??'')) return json({error:'VALIDATION_ERROR',message:'بيانات المشروع غير صالحة'},422); await c.env.DB.prepare('INSERT INTO projects(name,description,section_id,school_id,url,image_url) VALUES (?,?,?,?,?,?)').bind(body.name.trim(),body.description.trim(),body.section_id,body.school_id,body.url??null,body.image_url??null).run(); return json({error:'OK',message:'تمت الإضافة'},201); });
+app.get('/api/admin/projects', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare(`SELECT p.*,se.name AS section_name,sc.name AS school_name FROM projects p JOIN sections se ON se.id=p.section_id JOIN schools sc ON sc.id=p.school_id ORDER BY se.sort_order ASC,p.sort_order ASC,p.id ASC`).all()).results); });
+app.post('/api/admin/projects', async (c) => {
+  if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401);
+  const body=await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const patch=normalizeProjectPatch(body ?? {});
+  if (!patch.valid || !patch.value.name || !patch.value.description) return json({error:'VALIDATION_ERROR',message:'بيانات المشروع غير صالحة'},422);
+  const sectionId=Number((body as any).section_id), schoolId=Number((body as any).school_id);
+  if (!Number.isInteger(sectionId) || !Number.isInteger(schoolId)) return json({error:'VALIDATION_ERROR',message:'القسم والمدرسة مطلوبان'},422);
+  const section=await c.env.DB.prepare('SELECT id FROM sections WHERE id=?').bind(sectionId).first();
+  const school=await c.env.DB.prepare('SELECT id FROM schools WHERE id=?').bind(schoolId).first();
+  if (!section || !school) return json({error:'VALIDATION_ERROR',message:'القسم أو المدرسة غير موجودة'},422);
+  await c.env.DB.prepare('INSERT INTO projects(name,description,section_id,school_id,url,image_url,image_id) VALUES (?,?,?,?,?,?,?)')
+    .bind(patch.value.name,patch.value.description,sectionId,schoolId,patch.value.url??null,patch.value.image_url??null,patch.value.image_id??null).run();
+  return json({error:'OK',message:'تمت إضافة المشروع'},201);
+});
+app.put('/api/admin/projects/:id', async (c) => {
+  if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401);
+  const id = Number(c.req.param('id'));
+  const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+  const patch = normalizeProjectPatch(body ?? {});
+  if (!Number.isInteger(id) || !patch.valid || !Object.keys(patch.value).length) return json({error:'VALIDATION_ERROR',message:'بيانات المشروع غير صالحة'},422);
+  const entries = Object.entries(patch.value);
+  const sets = entries.map(([key]) => `${key}=?`).join(', ');
+  await c.env.DB.prepare(`UPDATE projects SET ${sets} WHERE id=?`).bind(...entries.map(([,value]) => value), id).run();
+  return json({error:'OK',message:'تم تحديث المشروع'});
+});
 
 app.get('/api/admin/settings', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare('SELECT key,value FROM settings').all()).results); });
 app.put('/api/admin/settings', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<Record<string,string>>(); const entries=Object.entries(body); if(entries.length){ await c.env.DB.batch(entries.map(([key,value])=>c.env.DB.prepare('INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').bind(key,String(value)))); } return json({error:'OK',message:'تم حفظ الإعدادات'}); });
