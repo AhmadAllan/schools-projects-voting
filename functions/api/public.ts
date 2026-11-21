@@ -7,7 +7,7 @@ export function publicResultsGate(value: string) {
 export function withCacheHeaders(status = 200): Headers {
   const headers = new Headers({
     'content-type': 'application/json; charset=utf-8',
-    'cache-control': 'public, max-age=300',
+    'cache-control': 'no-store',
   });
   return headers;
 }

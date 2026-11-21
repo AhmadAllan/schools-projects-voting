@@ -7,7 +7,7 @@ describe('واجهة النتائج العامة', () => {
     expect(publicResultsGate('1').allowed).toBe(true);
   });
 
-  it('يضبط تخزين الصور مؤقتًا ويحافظ على JSON UTF-8', () => {
-    expect(withCacheHeaders(200).get('cache-control')).toContain('public');
+  it('يمنع تخزين نتائج الإعلان مؤقتًا ويحافظ على JSON UTF-8', () => {
+    expect(withCacheHeaders(200).get('cache-control')).toContain('no-store');
   });
 });
