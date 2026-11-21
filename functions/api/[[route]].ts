@@ -3,6 +3,7 @@ import { constantTimeEqual, issueAdminSession, verifyAdminSession, getVotingStat
 import { validateSubmission, normalizedFullName } from './votes';
 import { VoteRequest } from './types';
 import { getPublicBallot, publicResultsGate, withCacheHeaders } from './public';
+import { validateSection, validateProjectUrl, validateImageUpload } from './admin-content';
 
 interface Bindings { DB: D1Database; ADMIN_PASSWORD: string; SESSION_SECRET: string }
 const app = new Hono<{ Bindings: Bindings }>();
@@ -95,6 +96,23 @@ app.post('/api/kiosk/votes', async (c) => {
   if (!await verifyAdminSession(c.req.raw, c.env.SESSION_SECRET ?? '')) return json({ error: 'UNAUTHORIZED', message: 'يجب تسجيل الدخول' }, 401);
   return submitVote(c, 'tablet');
 });
+
+
+async function requireAdmin(c: any) { return verifyAdminSession(c.req.raw, c.env.SESSION_SECRET ?? ''); }
+
+app.get('/api/admin/sections', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare('SELECT * FROM sections ORDER BY sort_order ASC,id ASC').all()).results); });
+app.post('/api/admin/sections', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<{name:string;description?:string;sort_order?:number}>(); const check=validateSection(body.name); if(!check.valid) return json({error:'VALIDATION_ERROR',message:'اسم الفئة مطلوب'},422); await c.env.DB.prepare('INSERT INTO sections(name,description,sort_order) VALUES (?,?,?)').bind(check.value,body.description??null,body.sort_order??0).run(); return json({error:'OK',message:'تمت الإضافة'},201); });
+
+app.get('/api/admin/schools', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare('SELECT * FROM schools ORDER BY name').all()).results); });
+app.post('/api/admin/schools', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<{name:string}>(); if(!body.name?.trim()) return json({error:'VALIDATION_ERROR',message:'اسم المدرسة مطلوب'},422); await c.env.DB.prepare('INSERT INTO schools(name) VALUES (?)').bind(body.name.trim()).run(); return json({error:'OK',message:'تمت الإضافة'},201); });
+
+app.get('/api/admin/projects', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare('SELECT * FROM projects ORDER BY sort_order ASC,id ASC').all()).results); });
+app.post('/api/admin/projects', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<{name:string;description:string;section_id:number;school_id:number;url?:string;image_url?:string}>(); if(!body.name?.trim()||!body.description?.trim()||!validateProjectUrl(body.url??'')) return json({error:'VALIDATION_ERROR',message:'بيانات المشروع غير صالحة'},422); await c.env.DB.prepare('INSERT INTO projects(name,description,section_id,school_id,url,image_url) VALUES (?,?,?,?,?,?)').bind(body.name.trim(),body.description.trim(),body.section_id,body.school_id,body.url??null,body.image_url??null).run(); return json({error:'OK',message:'تمت الإضافة'},201); });
+
+app.get('/api/admin/settings', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare('SELECT key,value FROM settings').all()).results); });
+app.put('/api/admin/settings', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<Record<string,string>>(); const entries=Object.entries(body); if(entries.length){ await c.env.DB.batch(entries.map(([key,value])=>c.env.DB.prepare('INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').bind(key,String(value)))); } return json({error:'OK',message:'تم حفظ الإعدادات'}); });
+
+app.post('/api/admin/images', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const form=await c.req.formData(); const file=form.get('file'); if(!(file instanceof File)||!validateImageUpload(file.type,file.size)) return json({error:'VALIDATION_ERROR',message:'الصورة يجب أن تكون PNG أو JPEG أو WebP وبحد 300 KB'},422); const data=new Uint8Array(await file.arrayBuffer()); const result=await c.env.DB.prepare('INSERT INTO images(mime,data) VALUES (?,?)').bind(file.type,data).run(); return json({id:result.meta.last_row_id},201); });
 
 app.notFound((c) => json({ error: 'NOT_FOUND', message: 'المسار غير موجود' }, 404));
 export const onRequest: PagesFunction<Bindings> = (context) => app.fetch(context.request, context.env, context);
