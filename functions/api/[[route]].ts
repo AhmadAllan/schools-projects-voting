@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
 import { buildSessionCookies, constantTimeEqual, issueAdminSession, verifyAdminSession, getVotingStatus } from './auth';
+import { calculateProjectVotes, groupResultsBySection, VoteSource } from './vote-sources';
 import { validateSubmission, normalizedFullName } from './votes';
 import { VoteRequest } from './types';
 import { getPublicBallot, publicResultsGate, withCacheHeaders } from './public';
 import { validateSection, validateProjectUrl, validateImageUpload } from './admin-content';
-import { calculateTie, csvWithBom } from './admin-results';
+import { csvWithBom } from './admin-results';
 
 interface Bindings { DB: D1Database; ADMIN_PASSWORD: string; SESSION_SECRET: string }
 const app = new Hono<{ Bindings: Bindings }>();
@@ -50,12 +51,35 @@ app.get('/api/public/results', async (c) => {
   const published = await c.env.DB.prepare('SELECT value FROM settings WHERE key=?').bind('results_published').first<{value:string}>();
   const gate = publicResultsGate(published?.value ?? '0');
   if (!gate.allowed) return json({ error: gate.code, message: 'النتائج غير منشورة بعد' }, 403);
-  const ranking = await c.env.DB.prepare(`SELECT se.id AS section_id,se.name AS section_name,p.id AS project_id,p.name AS project_name,p.image_id,p.image_url,
-    sc.name AS school_name, COUNT(v.id) AS votes
+  const sourceSetting = await c.env.DB.prepare('SELECT source FROM result_settings WHERE scope=?').bind('global').first<{ source: VoteSource }>();
+  const source = sourceSetting?.source ?? 'digital';
+
+  if (source === 'manual') {
+    const winners = await c.env.DB.prepare(`SELECT se.id AS section_id,se.name AS section_name,p.id AS project_id,p.name AS project_name,
+      p.image_url,sc.name AS school_name,0 AS votes
+      FROM section_winners w JOIN sections se ON se.id=w.section_id
+      JOIN projects p ON p.id=w.project_id JOIN schools sc ON sc.id=p.school_id
+      WHERE se.is_active=1 AND p.is_active=1 ORDER BY se.sort_order ASC,se.id ASC`).all();
+    const rows = (winners.results as Array<Record<string, any>>).map((row) => ({
+      sectionId: row.section_id, sectionName: row.section_name, projectId: row.project_id,
+      projectName: row.project_name, schoolName: row.school_name, imageUrl: row.image_url,
+      votes: row.votes, announceInResults: 1,
+    }));
+    return new Response(JSON.stringify({ source, sections: groupResultsBySection(rows) }), { headers: withCacheHeaders() });
+  }
+
+  const ranking = await c.env.DB.prepare(`SELECT se.id AS section_id,se.name AS section_name,p.id AS project_id,p.name AS project_name,p.image_id,p.image_url,p.written_votes,p.announce_in_results,
+    sc.name AS school_name, COUNT(v.id) AS digital_votes
     FROM sections se JOIN projects p ON p.section_id=se.id JOIN schools sc ON sc.id=p.school_id
     LEFT JOIN votes v ON v.project_id=p.id AND v.voter_id IN (SELECT id FROM voters WHERE voided=0)
-    WHERE se.is_active=1 AND p.is_active=1 GROUP BY se.id,p.id ORDER BY se.sort_order ASC,votes DESC,p.id ASC`).all();
-  return new Response(JSON.stringify(ranking.results), { headers: withCacheHeaders() });
+    WHERE se.is_active=1 AND p.is_active=1 GROUP BY se.id,p.id ORDER BY se.sort_order ASC,p.id ASC`).all();
+  const rows = (ranking.results as Array<Record<string, any>>).map((row) => ({
+    sectionId: row.section_id, sectionName: row.section_name, projectId: row.project_id,
+    projectName: row.project_name, schoolName: row.school_name, imageUrl: row.image_url,
+    votes: calculateProjectVotes({ digitalVotes: row.digital_votes, writtenVotes: row.written_votes }, source),
+    announceInResults: row.announce_in_results,
+  }));
+  return new Response(JSON.stringify({ source, sections: groupResultsBySection(rows) }), { headers: withCacheHeaders() });
 });
 
 async function submitVote(c: any, channel: 'qr' | 'tablet') {
@@ -122,11 +146,78 @@ app.put('/api/admin/settings', async (c) => { if (!await requireAdmin(c)) return
 app.post('/api/admin/images', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const form=await c.req.formData(); const file=form.get('file'); if(!(file instanceof File)||!validateImageUpload(file.type,file.size)) return json({error:'VALIDATION_ERROR',message:'الصورة يجب أن تكون PNG أو JPEG أو WebP وبحد 300 KB'},422); const data=new Uint8Array(await file.arrayBuffer()); const result=await c.env.DB.prepare('INSERT INTO images(mime,data) VALUES (?,?)').bind(file.type,data).run(); return json({id:result.meta.last_row_id},201); });
 
 
+app.get('/api/admin/votes', async (c) => {
+  if (!await requireAdmin(c)) return json({ error: 'UNAUTHORIZED', message: 'يجب تسجيل الدخول' }, 401);
+  const setting = await c.env.DB.prepare('SELECT source FROM result_settings WHERE scope = ?').bind('global').first<{ source: VoteSource }>();
+  const projects = await c.env.DB.prepare(`SELECT p.id,p.name,p.written_votes,p.announce_in_results,
+    se.name AS section_name,sc.name AS school_name,
+    COUNT(vr.id) AS digital_votes
+    FROM projects p JOIN sections se ON se.id=p.section_id JOIN schools sc ON sc.id=p.school_id
+    LEFT JOIN votes v ON v.project_id=p.id
+    LEFT JOIN voters vr ON vr.id=v.voter_id AND vr.voided=0
+    GROUP BY p.id,p.name,p.written_votes,p.announce_in_results,se.sort_order,se.name,sc.name
+    ORDER BY se.sort_order ASC,p.sort_order ASC,p.id ASC`).all();
+  const rows = (projects.results as Array<{ id:number; name:string; section_name:string; school_name:string; written_votes:number; announce_in_results:number; digital_votes:number }>).map((p) => {
+    const source = (setting?.source ?? 'digital') as VoteSource;
+    return { ...p, source, final_votes: calculateProjectVotes({ digitalVotes: p.digital_votes, writtenVotes: p.written_votes }, source) };
+  });
+  return json({ source: setting?.source ?? 'digital', projects: rows });
+});
+
+app.put('/api/admin/votes/source', async (c) => {
+  if (!await requireAdmin(c)) return json({ error: 'UNAUTHORIZED', message: 'يجب تسجيل الدخول' }, 401);
+  const body = await c.req.json<{ source?: VoteSource }>().catch(() => ({}));
+  if (!body.source || !['digital','written','combined','manual'].includes(body.source)) return json({ error: 'VALIDATION_ERROR', message: 'مصدر النتائج غير صالح' }, 422);
+  await c.env.DB.prepare('INSERT INTO result_settings(scope,source) VALUES (?,?) ON CONFLICT(scope) DO UPDATE SET source=excluded.source').bind('global', body.source).run();
+  return json({ error: 'OK', message: 'تم تحديث مصدر النتائج' });
+});
+
+app.put('/api/admin/votes/:id', async (c) => {
+  if (!await requireAdmin(c)) return json({ error: 'UNAUTHORIZED', message: 'يجب تسجيل الدخول' }, 401);
+  const id = Number(c.req.param('id'));
+  const body = await c.req.json<{ writtenVotes?: number; announceInResults?: boolean }>().catch(() => ({}));
+  if (!Number.isInteger(id) || (body.writtenVotes !== undefined && (!Number.isInteger(body.writtenVotes) || body.writtenVotes < 0))) return json({ error: 'VALIDATION_ERROR', message: 'بيانات الأصوات غير صالحة' }, 422);
+  if (body.writtenVotes !== undefined) await c.env.DB.prepare('UPDATE projects SET written_votes=? WHERE id=?').bind(body.writtenVotes, id).run();
+  if (body.announceInResults !== undefined) await c.env.DB.prepare('UPDATE projects SET announce_in_results=? WHERE id=?').bind(body.announceInResults ? 1 : 0, id).run();
+  return json({ error: 'OK', message: 'تم حفظ أصوات المشروع' });
+});
+
 app.get('/api/admin/voters', async (c) => { if(!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare('SELECT id,full_name,channel,is_duplicate,voided,void_reason,created_at FROM voters ORDER BY created_at DESC').all()).results); });
 app.post('/api/admin/voters/:id/void', async (c) => { if(!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<{reason?:string}>(); await c.env.DB.prepare('UPDATE voters SET voided=1,void_reason=? WHERE id=?').bind(body.reason??'تم الإلغاء',c.req.param('id')).run(); return json({error:'OK',message:'تم إلغاء أصوات الناخب'}); });
 app.post('/api/admin/voters/:id/restore', async (c) => { if(!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); await c.env.DB.prepare('UPDATE voters SET voided=0,void_reason=NULL WHERE id=?').bind(c.req.param('id')).run(); return json({error:'OK',message:'تمت استعادة أصوات الناخب'}); });
 
-app.get('/api/admin/results', async (c) => { if(!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const rows=(await c.env.DB.prepare(`SELECT se.id section_id,se.name section_name,p.id project_id,p.name project_name,COUNT(v.id) votes FROM sections se JOIN projects p ON p.section_id=se.id LEFT JOIN votes v ON v.project_id=p.id AND v.voter_id IN (SELECT id FROM voters WHERE voided=0) GROUP BY se.id,p.id ORDER BY se.sort_order,votes DESC`).all()).results as Array<{section_id:number;votes:number}>; const ties=new Map<number,boolean>(); for(const row of rows) { if(!ties.has(row.section_id)){ const sectionRows=rows.filter((r)=>r.section_id===row.section_id); ties.set(row.section_id,calculateTie(sectionRows).tie); } } return json({rows,ties:Object.fromEntries(ties)}); });
+app.get('/api/admin/results', async (c) => {
+  if (!await requireAdmin(c)) return json({ error: 'UNAUTHORIZED', message: 'يجب تسجيل الدخول' }, 401);
+  const setting = await c.env.DB.prepare('SELECT source FROM result_settings WHERE scope=?').bind('global').first<{ source: VoteSource }>();
+  const source = setting?.source ?? 'digital';
+
+  if (source === 'manual') {
+    const winners = await c.env.DB.prepare(`SELECT se.id AS section_id,se.name AS section_name,p.id AS project_id,p.name AS project_name,
+      p.image_url,sc.name AS school_name,0 AS votes
+      FROM section_winners w JOIN sections se ON se.id=w.section_id
+      JOIN projects p ON p.id=w.project_id JOIN schools sc ON sc.id=p.school_id
+      WHERE se.is_active=1 AND p.is_active=1 ORDER BY se.sort_order ASC,se.id ASC`).all();
+    const rows = (winners.results as Array<Record<string, any>>).map((row) => ({
+      sectionId: row.section_id, sectionName: row.section_name, projectId: row.project_id,
+      projectName: row.project_name, schoolName: row.school_name, imageUrl: row.image_url,
+      votes: row.votes, announceInResults: 1,
+    }));
+    return json({ source, sections: groupResultsBySection(rows) });
+  }
+
+  const ranking = await c.env.DB.prepare(`SELECT se.id AS section_id,se.name AS section_name,p.id AS project_id,p.name AS project_name,
+    p.image_url,p.written_votes,p.announce_in_results,sc.name AS school_name,COUNT(v.id) AS digital_votes
+    FROM sections se JOIN projects p ON p.section_id=se.id JOIN schools sc ON sc.id=p.school_id
+    LEFT JOIN votes v ON v.project_id=p.id AND v.voter_id IN (SELECT id FROM voters WHERE voided=0)
+    WHERE se.is_active=1 AND p.is_active=1 GROUP BY se.id,p.id ORDER BY se.sort_order ASC,p.id ASC`).all();
+  const rows = (ranking.results as Array<Record<string, any>>).map((row) => ({
+    sectionId: row.section_id, sectionName: row.section_name, projectId: row.project_id,
+    projectName: row.project_name, schoolName: row.school_name, imageUrl: row.image_url,
+    votes: calculateProjectVotes({ digitalVotes: row.digital_votes, writtenVotes: row.written_votes }, source),
+    announceInResults: row.announce_in_results,
+  }));
+  return json({ source, rows, sections: groupResultsBySection(rows) });
+});
 app.put('/api/admin/winners/:sectionId', async (c) => { if(!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<{project_id:number}>(); await c.env.DB.prepare('INSERT INTO section_winners(section_id,project_id) VALUES (?,?) ON CONFLICT(section_id) DO UPDATE SET project_id=excluded.project_id').bind(Number(c.req.param('sectionId')),body.project_id).run(); return json({error:'OK',message:'تم اختيار الفائز'}); });
 
 async function csvExport(c:any, kind:'results'|'voters') { if(!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); let csv=''; if(kind==='results') csv='القسم,المشروع,المدرسة,الأصوات\r\n'; else csv='الاسم الكامل,القناة,الوقت,مكرر,ملغى\r\n'; return new Response(csvWithBom(csv),{headers:{'content-type':'text/csv; charset=utf-8','content-disposition':`attachment; filename="${kind}.csv"`}}); }
