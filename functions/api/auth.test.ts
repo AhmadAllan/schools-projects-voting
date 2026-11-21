@@ -15,4 +15,12 @@ describe('جلسة الإدارة', () => {
     expect(constantTimeEqual('secret', 'secret')).toBe(true);
     expect(constantTimeEqual('secret', 'secrex')).toBe(false);
   });
+
+  it('ينتج cookie جلسة آمنة ومضمونة الحذف', async () => {
+    const { buildSessionCookies } = await import('./auth');
+    const token = await issueAdminSession('SESSION_SECRET_TEST', 1_000);
+    expect(buildSessionCookies(token).login).toContain('HttpOnly');
+    expect(buildSessionCookies(token).login).toContain('SameSite=Strict');
+    expect(buildSessionCookies(token).logout).toContain('Max-Age=0');
+  });
 });

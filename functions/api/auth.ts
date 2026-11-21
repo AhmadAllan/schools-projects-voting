@@ -13,6 +13,13 @@ async function hmac(secret: string, payload: string): Promise<string> {
   return Array.from(new Uint8Array(result), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+export function buildSessionCookies(token: string) {
+  return {
+    login: `admin_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200`,
+    logout: 'admin_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0',
+  };
+}
+
 export async function issueAdminSession(secret: string, now = Date.now()) {
   const payload = JSON.stringify({ exp: now + 12 * 60 * 60 * 1000 });
   const encoded = btoa(payload);

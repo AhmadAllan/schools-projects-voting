@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { constantTimeEqual, issueAdminSession, verifyAdminSession, getVotingStatus } from './auth';
+import { buildSessionCookies, constantTimeEqual, issueAdminSession, verifyAdminSession, getVotingStatus } from './auth';
 import { validateSubmission, normalizedFullName } from './votes';
 import { VoteRequest } from './types';
 import { getPublicBallot, publicResultsGate, withCacheHeaders } from './public';
@@ -24,13 +24,19 @@ app.post('/api/admin/login', async (c) => {
     return json({ error: 'INVALID_PASSWORD', message: 'كلمة المرور غير صحيحة' }, 401);
   }
   const token = await issueAdminSession(c.env.SESSION_SECRET ?? '');
-  c.header('Set-Cookie', `admin_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200`);
-  return json({ error: 'OK', message: 'تم تسجيل الدخول' });
+  const cookies = buildSessionCookies(token);
+  return new Response(JSON.stringify({ error: 'OK', message: 'تم تسجيل الدخول' }), {
+    status: 200,
+    headers: { 'content-type': 'application/json; charset=utf-8', 'Set-Cookie': cookies.login },
+  });
 });
 
 app.post('/api/admin/logout', (c) => {
-  c.header('Set-Cookie', 'admin_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0');
-  return json({ error: 'OK', message: 'تم تسجيل الخروج' });
+  const cookies = buildSessionCookies('');
+  return new Response(JSON.stringify({ error: 'OK', message: 'تم تسجيل الخروج' }), {
+    status: 200,
+    headers: { 'content-type': 'application/json; charset=utf-8', 'Set-Cookie': cookies.logout },
+  });
 });
 
 app.get('/api/admin/me', async (c) => {
