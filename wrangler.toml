@@ -1,0 +1,8 @@
+name = "school-voting"
+pages_build_output_dir = "dist/schools-projects-voting/browser"
+compatibility_date = "2026-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "school-voting"
+database_id = "PLACEHOLDER"

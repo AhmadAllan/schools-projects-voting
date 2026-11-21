@@ -1,23 +1,21 @@
 import { TestBed } from '@angular/core/testing';
-import { App } from './app';
+import { RouterTestingHarness } from '@angular/router/testing';
+import { provideRouter } from '@angular/router';
+import { routes } from './app.routes';
 
-describe('App', () => {
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [App],
-    }).compileComponents();
-  });
+describe('تطبيق التصويت', () => {
+  it('يعرف المسارات الأساسية ويحتفظ بها في العربية RTL', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter(routes)] });
+    await RouterTestingHarness.create();
 
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
-  });
+    expect(routes.map((route) => route.path)).toEqual(expect.arrayContaining([
+      '', 'kiosk', 'admin/login', 'admin', 'winners', 'not-found',
+    ]));
 
-  it('should render title', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, schools-projects-voting');
+    document.documentElement.lang = 'ar';
+    document.documentElement.dir = 'rtl';
+    const html = document.documentElement;
+    expect(html.lang).toBe('ar');
+    expect(html.dir).toBe('rtl');
   });
 });

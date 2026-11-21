@@ -1,1 +1,11 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  font-family: 'Cairo', 'Noto Kufi Arabic', Tahoma, Arial, sans-serif;
+  color: #173b35;
+  background: #f5faf8;
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body { margin: 0; direction: rtl; }
+button, input, select, textarea { font: inherit; }
+button { min-height: 56px; }
+main { min-height: 100dvh; display: grid; place-items: center; padding: 1rem; }
