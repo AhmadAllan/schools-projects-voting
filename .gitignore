@@ -47,4 +47,5 @@ Thumbs.db
 .worktrees/
 .agents/
 .superpowers/
+.dev.vars
 docs/

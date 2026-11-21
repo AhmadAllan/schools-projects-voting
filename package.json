@@ -8,7 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:run": "ng test --watch=false",
-    "dev:pages": "wrangler pages dev dist/schools-projects-voting/browser --d1 DB=school-voting"
+    "dev:pages": "wrangler pages dev dist/schools-projects-voting/browser"
   },
   "prettier": {
     "printWidth": 100,
