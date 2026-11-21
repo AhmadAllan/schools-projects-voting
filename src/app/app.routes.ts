@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
-  { path: '', loadComponent: () => import('./voter/home-placeholder.component').then((m) => m.HomePlaceholderComponent) },
+  { path: '', loadComponent: () => import('./voter/voter-shell.component').then((m) => m.VoterShellComponent) },
   { path: 'kiosk', loadComponent: () => import('./kiosk/kiosk-placeholder.component').then((m) => m.KioskPlaceholderComponent) },
   { path: 'admin/login', loadComponent: () => import('./admin/login-placeholder.component').then((m) => m.LoginPlaceholderComponent) },
   { path: 'admin', loadComponent: () => import('./admin/admin-placeholder.component').then((m) => m.AdminPlaceholderComponent) },
