@@ -5,4 +5,4 @@ compatibility_date = "2026-11-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "school-voting"
-database_id = "PLACEHOLDER"
+database_id = "b153de70-8e17-4a53-9af1-918a6e4a76bf"
