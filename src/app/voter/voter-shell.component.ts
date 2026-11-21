@@ -23,20 +23,20 @@ import { VoterStore } from './voter-store.service';
           </div>
         }
       </section>
-      <button class="primary sticky" [disabled]="store.selections().length === 0 && step() === 0" (click)="step.set(1)">ابدأ التصويت</button>
+      <button class="btn primary sticky" [disabled]="store.selections().length === 0 && step() === 0" (click)="step.set(1)">ابدأ التصويت</button>
     } @else if (step() === 1) {
       <section><h2>أدخل اسمك الرباعي</h2>
         <label>الاسم الأول<input lang="ar" autocomplete="off" [(ngModel)]="store.name().first"></label>
         <label>اسم الأب<input lang="ar" autocomplete="off" [(ngModel)]="store.name().father"></label>
         <label>اسم الجد<input lang="ar" autocomplete="off" [(ngModel)]="store.name().grandfather"></label>
         <label>اسم العائلة<input lang="ar" autocomplete="off" [(ngModel)]="store.name().family"></label>
-        <button class="primary" [disabled]="!nameValid()" (click)="step.set(2)">متابعة الاختيار</button>
+        <button class="btn primary" [disabled]="!nameValid()" (click)="step.set(2)">متابعة الاختيار</button>
       </section>
     } @else if (step() === 2) {
       <section><h2>راجع اختياراتك</h2><p>بعد الإرسال لا يمكن تعديل الأصوات</p><button class="primary" [disabled]="store.submitting()" (click)="submit()">تأكيد وإرسال</button></section>
     } @else { <section><h2>شكراً لمشاركتك!</h2><p>تم تسجيل صوتك</p></section> }
   </main>`,
-  styles: [`.voter-shell{max-width:1100px;margin:auto;padding:1rem}.voter-shell header{display:flex;justify-content:space-between}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}.project-card{min-height:180px;text-align:start;padding:1rem;border:2px solid #b9ccc6;background:white}.project-card b{color:#087f5b}.primary{min-height:56px;padding:.75rem 1.5rem}.sticky{position:sticky;bottom:1rem;width:100%}label{display:grid;gap:.5rem;margin:1rem 0}input{min-height:56px;padding:.75rem;border:1px solid #91aaa2}`]
+  styles: [`.voter-shell{max-width:1100px;margin:auto;padding:1rem}.voter-shell header{display:flex;justify-content:space-between}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}.project-card{min-height:180px;text-align:start;padding:1rem;border:2px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-sm);cursor:pointer;transition:box-shadow .15s ease-out,translate .15s ease-out,background-color .15s ease-out}.project-card b{color:var(--primary)}.project-card:has(b){border-color:var(--primary);background:var(--surface-selected);box-shadow:var(--shadow-md)}@media(prefers-reduced-motion:no-preference){.project-card:hover:not(:disabled){translate:0 -2px;box-shadow:var(--shadow-md)}}.primary{min-height:56px;padding:.75rem 1.5rem}.sticky{position:sticky;bottom:1rem;width:100%;box-shadow:var(--shadow-md)}label{display:grid;gap:.5rem;margin:1rem 0}input{min-height:56px;padding:.75rem}`]
 })
 export class VoterShellComponent {
   readonly store = inject(VoterStore); readonly step = signal(0); readonly ballot = signal<Ballot|null>(null);
