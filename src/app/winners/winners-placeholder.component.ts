@@ -67,8 +67,8 @@ const RANK_LABELS = ['', 'المركز الأول', 'المركز الثاني',
     .podium{flex:1;display:flex;flex-direction:column;justify-content:space-evenly;gap:clamp(.4rem,1.2vh,1.1rem);max-width:1000px;margin:0 auto;width:100%;min-height:0}
     .place-row{flex:1;display:grid;align-content:center;justify-items:center;gap:clamp(.25rem,.8vh,.6rem);min-height:0}
     .place-row .tie-badge{margin:0;padding:.3rem 1.1rem;border-radius:var(--radius-pill);background:var(--warn-bg);color:var(--warn-text);font-size:clamp(.85rem,1.9vh,1.3rem)}
-    .row-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,42vw),1fr));gap:clamp(.5rem,1.4vh,1.1rem);width:100%;min-height:0}
-    .place-row:not(.tied) .row-cards{grid-template-columns:minmax(0,540px)}
+    .row-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,42vw),1fr));gap:clamp(.5rem,1.4vh,1.1rem);width:100%;min-height:0;justify-content:center}
+    .place-row:not(.tied) .row-cards{grid-template-columns:minmax(min(340px,80vw),540px)}
     .winner-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(.2rem,.8vh,.6rem);padding:clamp(.5rem,1.8vh,1.5rem);border:2px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-md);min-height:0}
     .rank-badge{margin:0;padding:.3rem 1.1rem;border-radius:var(--radius-pill);background:var(--primary);color:var(--on-primary);font-size:clamp(.85rem,1.9vh,1.3rem)}
     .winner-card h2{font-size:clamp(1rem,3vh,2.4rem);margin:0}
