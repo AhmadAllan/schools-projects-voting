@@ -1,4 +1,10 @@
+import { AbstractControl, ValidationErrors } from '@angular/forms';
 import { AdminVoter } from '../core/models';
+
+/** يرفض القيم المؤلفة من مسافات فقط في حقول الأسماء. */
+export function notBlank(control: AbstractControl): ValidationErrors | null {
+  return String(control.value ?? '').trim() ? null : { blank: true };
+}
 
 /** يبحث في أسماء الناخبين مع تجاهل المسافات الزائدة حول البحث. */
 export function filterVoters(voters: AdminVoter[], query: string): AdminVoter[] {

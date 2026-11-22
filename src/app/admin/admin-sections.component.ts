@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ApiService } from '../core/api.service';
 import { AdminSection } from '../core/models';
+import { notBlank } from './admin-helpers';
 import { AdminNavComponent } from './admin-nav.component';
 
 @Component({
@@ -35,6 +36,7 @@ import { AdminNavComponent } from './admin-nav.component';
               </span>
             </td>
             <td>
+              <button class="btn" (click)="edit(section)">تعديل</button>
               <button class="btn" (click)="toggle(section)">
                 {{ section.is_active === 1 ? 'إيقاف' : 'تنشيط' }}
               </button>
@@ -45,7 +47,22 @@ import { AdminNavComponent } from './admin-nav.component';
         }
       </tbody>
     </table>
+
+    <dialog class="admin-dialog" #editDialog aria-labelledby="edit-section-title">
+      <form class="admin-form" [formGroup]="editForm" method="dialog" (submit)="saveEdit($event)">
+        <h2 id="edit-section-title">تعديل القسم</h2>
+        <label>اسم القسم <input formControlName="name" lang="ar" autofocus required></label>
+        <label>الوصف <textarea formControlName="description" lang="ar"></textarea></label>
+        <label>الترتيب <input formControlName="sortOrder" type="number" min="0" step="1"></label>
+        <div class="dialog-actions">
+          <button type="button" class="btn" (click)="closeEdit()">إلغاء</button>
+          <button type="submit" class="btn primary" [disabled]="editForm.invalid || editBusy()">حفظ التعديلات</button>
+        </div>
+      </form>
+    </dialog>
   </main>`,
+  styles: `dialog label { display: grid; gap: .4rem; margin: .75rem 0; }
+    .dialog-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1rem; }`,
 })
 export class AdminSectionsComponent {
   private api = inject(ApiService);
@@ -54,7 +71,16 @@ export class AdminSectionsComponent {
   readonly error = signal('');
   readonly busy = signal(false);
   readonly form = this.fb.group({
-    name: ['', [Validators.required, Validators.maxLength(100)]],
+    name: ['', [Validators.required, Validators.maxLength(100), notBlank]],
+    description: [''],
+    sortOrder: [0, [Validators.min(0)]],
+  });
+
+  readonly editDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editDialog');
+  readonly editing = signal<AdminSection | null>(null);
+  readonly editBusy = signal(false);
+  readonly editForm = this.fb.group({
+    name: ['', [Validators.required, Validators.maxLength(100), notBlank]],
     description: [''],
     sortOrder: [0, [Validators.min(0)]],
   });
@@ -86,5 +112,26 @@ export class AdminSectionsComponent {
       await this.api.updateSection(section.id, { is_active: section.is_active === 1 ? 0 : 1 });
       await this.load();
     } catch { this.error.set('تعذر تحديث حالة القسم.'); }
+  }
+
+  edit(section: AdminSection) {
+    this.editing.set(section);
+    this.editForm.patchValue({ name: section.name, description: section.description ?? '', sortOrder: section.sort_order });
+    this.editDialog().nativeElement.showModal();
+  }
+
+  closeEdit() { this.editDialog().nativeElement.close(); }
+
+  async saveEdit(event: Event) {
+    event.preventDefault();
+    if (this.editForm.invalid || !this.editing() || this.editBusy()) return;
+    this.editBusy.set(true);
+    const value = this.editForm.getRawValue();
+    try {
+      await this.api.updateSection(this.editing()!.id, { name: value.name, description: value.description, sort_order: value.sortOrder });
+      this.closeEdit();
+      await this.load();
+    } catch { this.error.set('تعذر تحديث القسم.'); }
+    finally { this.editBusy.set(false); }
   }
 }

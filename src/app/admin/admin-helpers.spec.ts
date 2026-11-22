@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { channelLabel, filterVoters } from './admin-helpers';
+import { channelLabel, filterVoters, notBlank } from './admin-helpers';
 import { AdminVoter } from '../core/models';
 
 const voters: AdminVoter[] = [
@@ -17,5 +17,11 @@ describe('مساعدات لوحة الإدارة', () => {
   it('يعرض تسمية عربية لقناة التصويت', () => {
     expect(channelLabel('qr')).toBe('الهاتف');
     expect(channelLabel('tablet')).toBe('الطاولة');
+  });
+
+  it('يرفض الأسماء المؤلفة من مسافات فقط', () => {
+    expect(notBlank({ value: 'الروبوتات' } as any)).toBeNull();
+    expect(notBlank({ value: '   ' } as any)).toEqual({ blank: true });
+    expect(notBlank({ value: '' } as any)).toEqual({ blank: true });
   });
 });
