@@ -120,4 +120,44 @@ describe('الشاشة الرئيسية بتبويبين', () => {
     await drain(); await drain(); await fixture.whenStable();
     expect(el.textContent).toContain('شكراً لمشاركتك');
   });
+
+  it('التبويبات تنفذ نمط ARIA tabs مع لوحة مربوطة', async () => {
+    const fixture = TestBed.createComponent(HomeShellComponent);
+    await fixture.whenStable();
+    TestBed.inject(HttpTestingController).expectOne('/api/public/ballot').flush(BALLOT);
+    await drain(); await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.tabs')?.getAttribute('role')).toBe('tablist');
+    const tabs = Array.from(el.querySelectorAll<HTMLButtonElement>('.tabs [role="tab"]'));
+    expect(tabs.length).toBe(2);
+    const vote = tabs.find((tab) => tab.textContent?.trim() === 'التصويت')!;
+    const winners = tabs.find((tab) => tab.textContent?.trim() === 'الفائزون')!;
+    expect(vote.getAttribute('aria-selected')).toBe('true');
+    expect(vote.tabIndex).toBe(0);
+    expect(winners.getAttribute('aria-selected')).toBe('false');
+    expect(winners.tabIndex).toBe(-1);
+    expect(winners.getAttribute('aria-controls')).toBe('home-panel-winners');
+    const panel = el.querySelector('[role="tabpanel"]');
+    expect(panel?.id).toBe('home-panel-vote');
+    expect(panel?.getAttribute('aria-labelledby')).toBe('home-tab-vote');
+  });
+
+  it('سهم يسار ينقل التبويب والتركيز إلى الفائزين (RTL)', async () => {
+    const fixture = TestBed.createComponent(HomeShellComponent);
+    await fixture.whenStable();
+    TestBed.inject(HttpTestingController).expectOne('/api/public/ballot').flush(BALLOT);
+    await drain(); await fixture.whenStable();
+    const winners = tabButton(fixture, 'الفائزون');
+    winners.focus();
+    winners.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    await fixture.whenStable();
+    expect(winners.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(winners);
+    winners.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    await fixture.whenStable();
+    expect(winners.getAttribute('aria-selected')).toBe('false');
+    const vote = tabButton(fixture, 'التصويت');
+    expect(vote.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(vote);
+  });
 });
