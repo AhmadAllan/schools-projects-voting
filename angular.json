@@ -25,6 +25,10 @@
               }
             ],
             "styles": [
+              "node_modules/@fontsource/cairo/arabic-400.css",
+              "node_modules/@fontsource/cairo/arabic-700.css",
+              "node_modules/@fontsource/cairo/latin-400.css",
+              "node_modules/@fontsource/cairo/latin-700.css",
               "src/styles.css"
             ]
           },

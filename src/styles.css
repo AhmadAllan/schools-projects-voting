@@ -32,12 +32,13 @@
   accent-color: var(--primary);
   scrollbar-color: var(--text-muted) var(--bg);
   font-family: 'Cairo', 'Noto Kufi Arabic', Tahoma, Arial, sans-serif;
+  font-size-adjust: from-font;
   color: var(--text);
   background: var(--bg);
 }
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
-body { margin: 0; direction: rtl; }
+body { margin: 0; }
 button, input, select, textarea { font: inherit; }
 button { min-height: 56px; }
 main { min-height: 100dvh; display: grid; place-items: center; padding: 1rem; }
@@ -183,7 +184,6 @@ dialog.admin-dialog {
 dialog.admin-dialog:modal { overscroll-behavior: contain; }
 dialog.admin-dialog::backdrop {
   background: var(--backdrop);
-  overflow: hidden;
   overscroll-behavior: contain;
 }
 @media (max-width: 700px) { .admin-table { display: block; overflow-x: auto; white-space: nowrap; } }
