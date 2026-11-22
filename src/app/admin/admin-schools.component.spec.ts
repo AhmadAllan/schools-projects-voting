@@ -9,6 +9,72 @@ beforeAll(() => {
   HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
 });
 
+describe('صفحة المدارس — التعديل', () => {
+  const school = { id: 2, name: 'مدرسة الأمل' };
+
+  async function setup(): Promise<{ fixture: ComponentFixture<AdminSchoolsComponent>; http: HttpTestingController }> {
+    const fixture = TestBed.createComponent(AdminSchoolsComponent);
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/admin/schools').flush([school]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return { fixture, http };
+  }
+
+  beforeEach(() => TestBed.configureTestingModule({
+    imports: [AdminSchoolsComponent],
+    providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+  }));
+
+  it('يفتح نافذة تعديل المدرسة مملوءة', async () => {
+    const { fixture } = await setup();
+    ((fixture.nativeElement as HTMLElement).querySelectorAll('tbody .btn')[0] as HTMLElement).click();
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('dialog') as HTMLDialogElement;
+    expect(dialog.open).toBe(true);
+    expect(fixture.componentInstance.editForm.getRawValue()).toEqual({ name: 'مدرسة الأمل' });
+  });
+
+  it('يحفظ التعديل عبر PUT ثم يغلق النافذة ويُعيد التحميل', async () => {
+    const { fixture, http } = await setup();
+    fixture.componentInstance.edit(school as any);
+    fixture.componentInstance.editForm.setValue({ name: 'مدرسة الأمل المتقدمة' });
+    const saving = fixture.componentInstance.saveEdit(new Event('submit'));
+    const req = http.expectOne({ method: 'PUT', url: '/api/admin/schools/2' });
+    expect(req.request.body).toEqual({ name: 'مدرسة الأمل المتقدمة' });
+    req.flush({ error: 'OK', message: 'تم تحديث المدرسة' });
+    await new Promise((resolve) => setTimeout(resolve));
+    http.expectOne('/api/admin/schools').flush([school]);
+    await saving;
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect((fixture.nativeElement.querySelector('dialog') as HTMLDialogElement).open).toBe(false);
+  });
+
+  it('يرفض الحفظ باسم فارغ دون إرسال طلب', async () => {
+    const { fixture, http } = await setup();
+    fixture.componentInstance.edit(school as any);
+    fixture.componentInstance.editForm.setValue({ name: '   ' });
+    expect(fixture.componentInstance.editForm.invalid).toBe(true);
+    http.verify();
+  });
+
+  it('يعرض خطأ الحفظ داخل النافذة ويبقيها مفتوحة', async () => {
+    const { fixture, http } = await setup();
+    fixture.componentInstance.edit(school as any);
+    fixture.componentInstance.editForm.setValue({ name: 'مدرسة الأمل المتقدمة' });
+    const saving = fixture.componentInstance.saveEdit(new Event('submit'));
+    const req = http.expectOne({ method: 'PUT', url: '/api/admin/schools/2' });
+    req.flush({ error: 'VALIDATION_ERROR', message: 'اسم المدرسة غير صالح' }, { status: 422, statusText: 'Unprocessable Entity' });
+    await saving;
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('dialog') as HTMLDialogElement;
+    expect(dialog.open).toBe(true);
+    expect(dialog.querySelector('.admin-error')?.textContent).toContain('تعذر تحديث المدرسة');
+  });
+});
+
 describe('صفحة المدارس — الحذف المتسلسل', () => {
   const rows = [
     { id: 10, name: 'مدرسة النور' },

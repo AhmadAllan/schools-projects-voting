@@ -196,17 +196,18 @@ app.put('/api/admin/projects/:id', async (c) => {
 
 /** يجمع بيانات المعاينة: أسماء العناصر المختارة والمشاريع المرتبطة بها وأصواتها — دون كتابة شيء. */
 async function deletePreviewData(db: D1Database, kind: DeleteKind, ids: number[]) {
-  const marks = ids.map(() => '?').join(',');
-  const projectFilter = kind === 'sections' ? `p.section_id IN (${marks})` : kind === 'schools' ? `p.school_id IN (${marks})` : `p.id IN (${marks})`;
-  const projectsQuery = `SELECT p.id,p.name,p.section_id,p.school_id,se.name AS section_name,sc.name AS school_name FROM projects p JOIN sections se ON se.id=p.section_id JOIN schools sc ON sc.id=p.school_id WHERE ${projectFilter}`;
-  const projects = (await db.prepare(projectsQuery).bind(...ids).all()).results as unknown as DeleteData['projects'];
-  const sections = kind === 'sections' ? (await db.prepare(`SELECT id,name FROM sections WHERE id IN (${marks})`).bind(...ids).all()).results as unknown as DeleteData['sections'] : [];
-  const schools = kind === 'schools' ? (await db.prepare(`SELECT id,name FROM schools WHERE id IN (${marks})`).bind(...ids).all()).results as unknown as DeleteData['schools'] : [];
+  const idList = JSON.stringify(ids);
+  const projectFilter = kind === 'sections' ? 'p.section_id' : kind === 'schools' ? 'p.school_id' : 'p.id';
+  const projectsQuery = `SELECT p.id,p.name,p.section_id,p.school_id,p.written_votes,se.name AS section_name,sc.name AS school_name FROM projects p JOIN sections se ON se.id=p.section_id JOIN schools sc ON sc.id=p.school_id WHERE ${projectFilter} IN (SELECT value FROM json_each(?))`;
+  const projects = (await db.prepare(projectsQuery).bind(idList).all()).results as unknown as DeleteData['projects'];
+  const itemQuery = kind === 'sections' ? 'SELECT id,name FROM sections WHERE id IN (SELECT value FROM json_each(?))' : kind === 'schools' ? 'SELECT id,name FROM schools WHERE id IN (SELECT value FROM json_each(?))' : '';
+  const sections = kind === 'sections' ? (await db.prepare(itemQuery).bind(idList).all()).results as unknown as DeleteData['sections'] : [];
+  const schools = kind === 'schools' ? (await db.prepare(itemQuery).bind(idList).all()).results as unknown as DeleteData['schools'] : [];
   const projectIds = projects.map((project) => project.id);
   const votes = projectIds.length
-    ? (await db.prepare(`SELECT project_id FROM votes WHERE project_id IN (${projectIds.map(() => '?').join(',')})`).bind(...projectIds).all()).results as unknown as DeleteData['votes']
+    ? (await db.prepare('SELECT project_id, COUNT(*) AS n FROM votes WHERE project_id IN (SELECT value FROM json_each(?)) GROUP BY project_id').bind(JSON.stringify(projectIds)).all()).results as unknown as DeleteData['votes']
     : [];
-  const data: DeleteData = { sections, schools, projects, votes, winners: [], manualProjectId: null };
+  const data: DeleteData = { sections, schools, projects, votes };
   return { data, projectIds };
 }
 

@@ -28,15 +28,19 @@ import { DeletePreview } from '../core/models';
         } @else {
           <p class="delete-warning">لا توجد مشاريع مرتبطة بها{{ preview.votes ? ' — لكن ' + preview.votes + ' صوتًا مسجلًا عليها' : '' }}.</p>
         }
-        @if (error()) { <p class="admin-error" role="alert">{{ error() }}</p> }
         <label class="confirm-word">اكتب كلمة «تأكيد» للمتابعة
           <input [value]="word()" (input)="word.set($any($event.target)?.value)" lang="ar" autocomplete="off">
         </label>
+      }
+      @if (error()) { <p class="admin-error" role="alert">{{ error() }}</p> }
+      @if (!loading()) {
         <div class="dialog-actions">
-          <button type="button" class="btn" autofocus (click)="close()">إلغاء</button>
-          <button type="button" class="btn danger" [disabled]="!canConfirm()" (click)="confirmed.emit()">
-            {{ busy() ? 'جارٍ الحذف…' : 'حذف نهائي' }}
-          </button>
+          <button type="button" class="btn" autofocus [disabled]="busy()" (click)="cancelled.emit(); close()">إلغاء</button>
+          @if (preview(); as preview) {
+            <button type="button" class="btn danger" [disabled]="!canConfirm()" (click)="confirmed.emit()">
+              {{ busy() ? 'جارٍ الحذف…' : 'حذف نهائي' }}
+            </button>
+          }
         </div>
       }
     </dialog>`,
@@ -74,6 +78,5 @@ export class BulkDeleteDialogComponent {
   close() {
     const dialog = this.dialogRef().nativeElement;
     if (typeof dialog.close === 'function') dialog.close(); else dialog.removeAttribute('open');
-    this.cancelled.emit();
   }
 }

@@ -90,4 +90,17 @@ describe('نافذة تحذير الحذف المتسلسل', () => {
     await fixture.whenStable();
     expect(dialog.open).toBe(false);
   });
+
+  it('خطأ المعاينة يظهر مع زر إلغاء حتى بلا معاينة', async () => {
+    const el = (await render({ error: 'تعذر حساب ما سيُحذف' })).nativeElement as HTMLElement;
+    expect(el.textContent).toContain('تعذر حساب ما سيُحذف');
+    const cancel = Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.trim() === 'إلغاء')!;
+    expect(cancel).toBeTruthy();
+    expect(Array.from(el.querySelectorAll('button')).some((button) => button.textContent?.includes('حذف نهائي'))).toBe(false);
+  });
+
+  it('زر الإلغاء معطل أثناء تنفيذ الحذف', async () => {
+    const el = (await render({ preview: PREVIEW, busy: true })).nativeElement as HTMLElement;
+    expect(Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find((button) => button.textContent?.trim() === 'إلغاء')!.disabled).toBe(true);
+  });
 });
