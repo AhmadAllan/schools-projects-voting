@@ -1,18 +1,27 @@
 import { ChangeDetectionStrategy, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ApiService } from '../core/api.service';
-import { AdminSection } from '../core/models';
+import { AdminSection, DeletePreview } from '../core/models';
 import { notBlank } from './admin-helpers';
 import { AdminNavComponent } from './admin-nav.component';
+import { BulkDeleteDialogComponent } from './bulk-delete-dialog.component';
 
 @Component({
-  imports: [ReactiveFormsModule, AdminNavComponent],
+  imports: [ReactiveFormsModule, AdminNavComponent, BulkDeleteDialogComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
   <main class="admin-shell">
     <app-admin-nav />
     <h1>الأقسام</h1>
     @if (error()) { <p class="admin-error">{{ error() }}</p> }
+    @if (summary()) { <p class="admin-ok" role="status">{{ summary() }}</p> }
+
+    @if (selected().size) {
+      <div class="bulk-bar">
+        <span>المحدد: {{ selected().size }}</span>
+        <button type="button" class="btn danger" (click)="requestDelete([...selected()])">حذف المحدد ({{ selected().size }})</button>
+      </div>
+    }
 
     <form class="admin-form" [formGroup]="form" (ngSubmit)="add()">
       <h2>إضافة قسم</h2>
@@ -23,10 +32,11 @@ import { AdminNavComponent } from './admin-nav.component';
     </form>
 
     <table class="admin-table">
-      <thead><tr><th>القسم</th><th>الوصف</th><th>الترتيب</th><th>الحالة</th><th></th></tr></thead>
+      <thead><tr><th class="check-col"><input type="checkbox" [checked]="allSelected()" (change)="toggleSelectAll()" aria-label="تحديد كل الأقسام"></th><th>القسم</th><th>الوصف</th><th>الترتيب</th><th>الحالة</th><th></th></tr></thead>
       <tbody>
         @for (section of sections(); track section.id) {
           <tr>
+            <td class="check-col"><input type="checkbox" [checked]="selected().has(section.id)" (change)="toggleSelect(section.id)" [attr.aria-label]="'تحديد ' + section.name"></td>
             <td>{{ section.name }}</td>
             <td>{{ section.description || '—' }}</td>
             <td>{{ section.sort_order }}</td>
@@ -40,10 +50,11 @@ import { AdminNavComponent } from './admin-nav.component';
               <button class="btn" (click)="toggle(section)">
                 {{ section.is_active === 1 ? 'إيقاف' : 'تنشيط' }}
               </button>
+              <button class="btn danger" (click)="requestDelete([section.id])">حذف</button>
             </td>
           </tr>
         } @empty {
-          <tr><td colspan="5">لا توجد أقسام بعد.</td></tr>
+          <tr><td colspan="6">لا توجد أقسام بعد.</td></tr>
         }
       </tbody>
     </table>
@@ -61,9 +72,15 @@ import { AdminNavComponent } from './admin-nav.component';
         </div>
       </form>
     </dialog>
+
+    <app-bulk-delete-dialog #deleteDialog title="تأكيد حذف الأقسام"
+      [loading]="deleteLoading()" [preview]="deletePreview()" [busy]="deleteBusy()" [error]="deleteError()"
+      (confirmed)="confirmDelete()" />
   </main>`,
   styles: `dialog label { display: grid; gap: .4rem; margin: .75rem 0; }
-    .dialog-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1rem; }`,
+    .dialog-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1rem; }
+    .bulk-bar { display: flex; align-items: center; gap: .75rem; margin: .75rem 0; }
+    .check-col { width: 2.5rem; text-align: center; }`,
 })
 export class AdminSectionsComponent {
   private api = inject(ApiService);
@@ -78,6 +95,14 @@ export class AdminSectionsComponent {
   });
 
   readonly editDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editDialog');
+  readonly deleteDialog = viewChild.required<BulkDeleteDialogComponent>('deleteDialog');
+  readonly selected = signal<Set<number>>(new Set());
+  readonly deleteLoading = signal(false);
+  readonly deletePreview = signal<DeletePreview | null>(null);
+  readonly deleteBusy = signal(false);
+  readonly deleteError = signal('');
+  readonly summary = signal('');
+  private pendingDeleteIds: number[] = [];
   readonly editing = signal<AdminSection | null>(null);
   readonly editBusy = signal(false);
   readonly editError = signal('');
@@ -136,5 +161,51 @@ export class AdminSectionsComponent {
       await this.load();
     } catch { this.editError.set('تعذر تحديث القسم.'); }
     finally { this.editBusy.set(false); }
+  }
+
+  protected allSelected() {
+    const sections = this.sections();
+    return sections.length > 0 && sections.every((section) => this.selected().has(section.id));
+  }
+
+  protected toggleSelect(id: number) {
+    this.selected.update((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  protected toggleSelectAll() {
+    this.selected.update((current) => {
+      if (this.sections().every((section) => current.has(section.id))) return new Set<number>();
+      return new Set(this.sections().map((section) => section.id));
+    });
+  }
+
+  async requestDelete(ids: number[]) {
+    this.pendingDeleteIds = ids;
+    this.deleteLoading.set(true);
+    this.deletePreview.set(null);
+    this.deleteError.set('');
+    this.summary.set('');
+    this.deleteDialog().open();
+    try { this.deletePreview.set(await this.api.previewDelete('sections', ids)); }
+    catch { this.deleteError.set('تعذر حساب ما سيُحذف. أعد المحاولة.'); }
+    finally { this.deleteLoading.set(false); }
+  }
+
+  async confirmDelete() {
+    if (this.deleteBusy()) return;
+    this.deleteBusy.set(true);
+    this.deleteError.set('');
+    try {
+      const { deleted } = await this.api.bulkDelete('sections', this.pendingDeleteIds);
+      this.deleteDialog().close();
+      this.selected.set(new Set());
+      this.summary.set(`تم حذف ${deleted.sections} قسم، ${deleted.projects} مشروع، ${deleted.votes} صوت`);
+      await this.load();
+    } catch { this.deleteError.set('تعذر تنفيذ الحذف.'); }
+    finally { this.deleteBusy.set(false); }
   }
 }
