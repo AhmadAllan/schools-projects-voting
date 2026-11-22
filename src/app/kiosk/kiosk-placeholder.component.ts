@@ -1,16 +1,16 @@
 import { Component, DestroyRef, ElementRef, effect, inject, signal, viewChild } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from '../core/api.service';
 import { Ballot } from '../core/models';
 import { VoterStore } from '../voter/voter-store.service';
 import { BallotCardsComponent } from '../voter/ballot-cards.component';
+import { VoterNameFormComponent } from '../voter/voter-name-form.component';
 import { KioskResetService } from './kiosk-reset.service';
 import { KioskInactivityService } from './kiosk-inactivity.service';
-@Component({ imports: [FormsModule, BallotCardsComponent], template: `
+@Component({ imports: [BallotCardsComponent, VoterNameFormComponent], template: `
 <main class="kiosk" (pointerdown)="activity()" (keydown)="activity()">
   @if (step()===0){<button class="welcome" (click)="step.set(1)">ابدأ التصويت</button>}
-  @else if (step()===1){<section><h1>أدخل اسمك الرباعي</h1><label>الاسم الأول<input lang="ar" autocomplete="off" [(ngModel)]="store.name().first"></label><label>اسم الأب<input lang="ar" autocomplete="off" [(ngModel)]="store.name().father"></label><label>اسم الجد<input lang="ar" autocomplete="off" [(ngModel)]="store.name().grandfather"></label><label>اسم العائلة<input lang="ar" autocomplete="off" [(ngModel)]="store.name().family"></label><button [disabled]="!nameValid()" (click)="step.set(2)">متابعة</button></section>}
+  @else if (step()===1){<app-voter-name-form [initial]="store.name()" (nameChange)="store.name.set($event)" (continueWith)="step.set(2)" />}
   @else if (step()===2){<section><h1>اختر المشاريع</h1>
     <app-ballot-cards
       [ballot]="ballot()" [selections]="store.selections()"
@@ -58,7 +58,6 @@ export class KioskPlaceholderComponent {
       .finally(()=>{ this.ballotLoading.set(false); });
   }
   activity(){ this.inactivity.touch(()=>this.reset.reset()); }
-  nameValid(){ const values=Object.values(this.store.name()); return values.every((value)=>/^[ء-ي ]{3,30}$/.test(value.trim())); }
   requestReset(){
     this.confirmAction=()=>this.reset.reset();
     this.requestWithConfirm(this.confirmAction);

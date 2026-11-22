@@ -1,13 +1,13 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, inject, signal } from '@angular/core';
 import { ApiService } from '../core/api.service';
 import { Ballot } from '../core/models';
 import { VoterStore } from './voter-store.service';
 import { BallotCardsComponent } from './ballot-cards.component';
+import { VoterNameFormComponent } from './voter-name-form.component';
 
 @Component({
   selector: 'app-voter-shell',
-  imports: [FormsModule, BallotCardsComponent],
+  imports: [BallotCardsComponent, VoterNameFormComponent],
   template: `
   <main class="voter-shell">
     <header><h1>منافسة المشاريع المدرسية: التصويت</h1></header>
@@ -17,15 +17,9 @@ import { BallotCardsComponent } from './ballot-cards.component';
         [loading]="ballotLoading()" [error]="ballotError()"
         (toggle)="store.toggleSelection($event.sectionId, $event.projectId)"
         (retry)="loadBallot()" />
-      <button class="btn primary sticky" [disabled]="store.selections().length === 0 && step() === 0" (click)="step.set(1)">ابدأ التصويت</button>
+      <button class="btn primary sticky" [disabled]="store.selections().length === 0 && step() === 0" (click)="step.set(1)">متابعة</button>
     } @else if (step() === 1) {
-      <section><h2>أدخل اسمك الرباعي</h2>
-        <label>الاسم الأول<input lang="ar" autocomplete="off" [(ngModel)]="store.name().first"></label>
-        <label>اسم الأب<input lang="ar" autocomplete="off" [(ngModel)]="store.name().father"></label>
-        <label>اسم الجد<input lang="ar" autocomplete="off" [(ngModel)]="store.name().grandfather"></label>
-        <label>اسم العائلة<input lang="ar" autocomplete="off" [(ngModel)]="store.name().family"></label>
-        <button class="btn primary" [disabled]="!nameValid()" (click)="step.set(2)">متابعة الاختيار</button>
-      </section>
+      <app-voter-name-form [initial]="store.name()" (nameChange)="store.name.set($event)" (continueWith)="step.set(2)" />
     } @else if (step() === 2) {
       <section><h2>راجع اختياراتك</h2><p>بعد الإرسال لا يمكن تعديل الأصوات</p><button class="primary" [disabled]="store.submitting()" (click)="submit()">تأكيد وإرسال</button></section>
     } @else { <section><h2>شكراً لمشاركتك!</h2><p>تم تسجيل صوتك</p></section> }
@@ -44,7 +38,6 @@ export class VoterShellComponent {
       .catch(() => { this.ballotError.set('تعذر تحميل المشاريع. تحقق من الاتصال ثم أعد المحاولة.'); })
       .finally(() => { this.ballotLoading.set(false); });
   }
-  nameValid() { const values = Object.values(this.store.name()); return values.every((value) => /^[ء-ي ]{3,30}$/.test(value.trim())); }
   async submit() {
     this.store.submitting.set(true);
     try { await this.api.submitVote({ requestId: this.store.requestId(), name: this.store.name(), selections: this.store.selections(), confirmDuplicate: this.store.duplicateWarning() }); this.step.set(3); }

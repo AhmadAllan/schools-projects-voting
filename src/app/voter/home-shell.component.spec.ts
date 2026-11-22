@@ -74,7 +74,7 @@ describe('الشاشة الرئيسية بتبويبين', () => {
     const el = fixture.nativeElement as HTMLElement;
     el.querySelector<HTMLButtonElement>('.project-card')!.click();
     await fixture.whenStable();
-    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'ابدأ التصويت')!.click();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'متابعة')!.click();
     await fixture.whenStable();
     const input = el.querySelector<HTMLInputElement>('input')!;
     input.value = 'سارة';
