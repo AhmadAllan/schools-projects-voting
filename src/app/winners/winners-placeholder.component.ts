@@ -37,9 +37,6 @@ const RANK_LABELS = ['', 'المركز الأول', 'المركز الثاني',
             <div class="row-cards">
               @for (project of place.projects; track project.project_id) {
                 <article class="winner-card">
-                  @if (project.image_url) {
-                    <img [src]="project.image_url" [alt]="project.project_name">
-                  }
                   <h2>{{ project.project_name }}</h2>
                   @if (project.school_name) { <p class="school">{{ project.school_name }}</p> }
                   @if (!isManual()) { <strong>{{ project.votes }} صوت</strong> }
@@ -57,29 +54,28 @@ const RANK_LABELS = ['', 'المركز الأول', 'المركز الثاني',
     }
   </main>`,
   styles: [`
-    .winners{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;gap:2rem;padding:clamp(1rem,4vw,3rem);text-align:center;background:var(--bg);color:var(--text)}
-    .winners.embedded{min-height:auto;justify-content:flex-start;padding:1rem 0}
-    .state{font-size:clamp(1.25rem,3vw,2rem)}
+    .winners{min-height:100dvh;display:flex;flex-direction:column;gap:clamp(.4rem,1.2vh,1.25rem);padding:clamp(.6rem,2vh,2rem);text-align:center;background:var(--bg);color:var(--text)}
+    .winners.embedded{min-height:auto;padding:1rem 0}
+    .state{margin:auto;font-size:clamp(1.1rem,2.6vh,1.9rem)}
     .error{color:var(--danger)}
-    .admin-return{position:fixed;inset-block-start:1rem;inset-inline-start:1rem;min-height:56px;padding:.75rem 1.5rem;border:2px solid var(--primary);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:1.1rem;cursor:pointer;box-shadow:var(--shadow-md)}
+    .admin-return{position:fixed;inset-block-start:.75rem;inset-inline-start:.75rem;min-height:56px;padding:.6rem 1.25rem;border:2px solid var(--primary);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:clamp(.9rem,1.8vh,1.1rem);cursor:pointer;box-shadow:var(--shadow-md);z-index:2}
     .admin-return:hover{background:var(--surface-tint)}
-    header h1{font-size:clamp(2rem,6vw,4.5rem);margin:.5rem 0}
-    header small{font-size:clamp(1rem,2vw,1.4rem);color:var(--text-muted)}
-    .badge{display:inline-block;margin:0;padding:.4rem 1rem;border-radius:var(--radius-pill);background:var(--ok-bg);color:var(--ok-text);font-size:clamp(1rem,2vw,1.4rem)}
-    .badge.tie{background:var(--warn-bg);color:var(--warn-text)}
-    .podium{display:flex;flex-direction:column;gap:1.5rem;max-width:1000px;margin:0 auto;width:100%}
-    .place-row{display:grid;justify-items:center;gap:.75rem}
-    .place-row .tie-badge{margin:0;padding:.4rem 1.25rem;border-radius:var(--radius-pill);background:var(--warn-bg);color:var(--warn-text);font-size:clamp(1rem,2vw,1.35rem)}
-    .row-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1.25rem;width:100%}
-    .place-row:not(.tied) .row-cards{grid-template-columns:minmax(0,480px)}
-    .winner-card{display:flex;flex-direction:column;align-items:center;gap:.75rem;padding:clamp(1rem,3vw,2rem);border:2px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-md)}
-    .rank-badge{margin:0;padding:.4rem 1.25rem;border-radius:var(--radius-pill);background:var(--primary);color:var(--on-primary);font-size:clamp(1rem,2vw,1.35rem)}
-    .winner-card img{width:100%;max-height:240px;object-fit:contain;border-radius:.75rem}
-    .winner-card h2{font-size:clamp(1.5rem,4vw,3rem);margin:0}
-    .winner-card .school{margin:0;color:var(--text-muted);font-size:clamp(1rem,2vw,1.4rem)}
-    .winner-card strong{font-size:clamp(1.1rem,2.5vw,1.6rem);color:var(--primary)}
-    footer{display:flex;justify-content:center;gap:1rem;flex-wrap:wrap}
-    footer button{min-height:56px;min-width:8rem;padding:.75rem 1.5rem;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-sm);font-size:1.1rem;cursor:pointer}
+    header{display:grid;gap:clamp(.15rem,.6vh,.5rem)}
+    header h1{font-size:clamp(1.3rem,4.2vh,3.6rem);margin:0}
+    header small{font-size:clamp(.85rem,1.8vh,1.3rem);color:var(--text-muted)}
+    .badge{display:inline-block;margin:0;padding:.3rem 1rem;border-radius:var(--radius-pill);background:var(--ok-bg);color:var(--ok-text);font-size:clamp(.9rem,1.9vh,1.35rem)}
+    .podium{flex:1;display:flex;flex-direction:column;justify-content:space-evenly;gap:clamp(.4rem,1.2vh,1.1rem);max-width:1000px;margin:0 auto;width:100%;min-height:0}
+    .place-row{flex:1;display:grid;align-content:center;justify-items:center;gap:clamp(.25rem,.8vh,.6rem);min-height:0}
+    .place-row .tie-badge{margin:0;padding:.3rem 1.1rem;border-radius:var(--radius-pill);background:var(--warn-bg);color:var(--warn-text);font-size:clamp(.85rem,1.9vh,1.3rem)}
+    .row-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,42vw),1fr));gap:clamp(.5rem,1.4vh,1.1rem);width:100%;min-height:0}
+    .place-row:not(.tied) .row-cards{grid-template-columns:minmax(0,540px)}
+    .winner-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(.2rem,.8vh,.6rem);padding:clamp(.5rem,1.8vh,1.5rem);border:2px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-md);min-height:0}
+    .rank-badge{margin:0;padding:.3rem 1.1rem;border-radius:var(--radius-pill);background:var(--primary);color:var(--on-primary);font-size:clamp(.85rem,1.9vh,1.3rem)}
+    .winner-card h2{font-size:clamp(1rem,3vh,2.4rem);margin:0}
+    .winner-card .school{margin:0;color:var(--text-muted);font-size:clamp(.8rem,1.7vh,1.25rem)}
+    .winner-card strong{font-size:clamp(.9rem,2vh,1.5rem);color:var(--primary)}
+    footer{display:flex;justify-content:center;gap:clamp(.5rem,1.5vw,1rem);flex-wrap:wrap}
+    footer button{min-height:clamp(48px,7vh,56px);min-width:clamp(5.5rem,18vw,8rem);padding:.5rem 1.25rem;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-sm);font-size:clamp(.95rem,1.9vh,1.1rem);cursor:pointer}
     footer button:hover:not(:disabled){background:var(--surface-tint);box-shadow:var(--shadow-md)}
     footer button:disabled{opacity:.4;cursor:not-allowed}
   `]
@@ -100,12 +96,18 @@ export class WinnersPlaceholderComponent {
     const section = this.current();
     if (!section) return [];
     if (this.isManual()) return [{ rank: 0, label: '', tied: false, projects: section.projects }];
-    const totals = [...new Set(section.projects.map((project) => project.votes))].filter((votes) => votes > 0).sort((a, b) => b - a).slice(0, 3);
-    if (!totals.length) return [{ rank: 0, label: '', tied: false, projects: section.projects.slice(0, 3) }];
-    return totals.map((votes, index) => {
-      const projects = section.projects.filter((project) => project.votes === votes);
-      return { rank: index + 1, label: RANK_LABELS[index + 1] ?? '', tied: projects.length > 1, projects };
-    });
+    const positives = section.projects.filter((project) => project.votes > 0);
+    if (!positives.length) return [{ rank: 0, label: '', tied: false, projects: section.projects.slice(0, 3) }];
+    const groups = new Map<number, ResultProject[]>();
+    for (const project of positives) {
+      const rank = 1 + positives.filter((other) => other.votes > project.votes).length;
+      if (rank > 3) continue;
+      const list = groups.get(rank) ?? [];
+      list.push(project);
+      groups.set(rank, list);
+    }
+    return [...groups.entries()].sort((a, b) => a[0] - b[0])
+      .map(([rank, projects]) => ({ rank, label: RANK_LABELS[rank] ?? '', tied: projects.length > 1, projects }));
   });
 
   constructor() { afterNextRender(() => { void this.load(); }); }

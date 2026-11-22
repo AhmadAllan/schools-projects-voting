@@ -53,28 +53,41 @@ describe('شاشة الفائزين', () => {
   it('يعرض المراكز الثلاثة الأولى كل مركز في صف', async () => {
     const fixture = await standalone();
     const http = TestBed.inject(HttpTestingController);
-    http.expectOne('/api/admin/results').flush(results('digital', [9, 7, 5, 3]));
+    const body = results('digital', [9, 7, 5, 3]);
+    body.sections[0]!.projects[0]!.image_url = '/img.png';
+    http.expectOne('/api/admin/results').flush(body);
     await drain(); await fixture.whenStable();
     const placeRows = rows(fixture);
     expect(placeRows.length).toBe(3);
     expect(placeRows.map((row) => rowCards(row).length)).toEqual([1, 1, 1]);
     expect(placeRows.map((row) => rowBadge(row))).toEqual(['المركز الأول', 'المركز الثاني', 'المركز الثالث']);
     expect(text(fixture)).not.toContain('مشروع 4');
+    expect((fixture.nativeElement as HTMLElement).querySelector('img')).toBeNull();
   });
 
-  it('التعادل في الأول يعرض بطاقتي المركز الأول مع لافتة تعادل فوقهما', async () => {
+  it('التعادل في الأول يجعل المشروع التالي في المركز الثالث', async () => {
     const fixture = await standalone();
     const http = TestBed.inject(HttpTestingController);
-    const body = results('digital', [10, 10, 5]);
-    body.sections[0]!.tiedProjects = [1, 2];
-    http.expectOne('/api/admin/results').flush(body);
+    http.expectOne('/api/admin/results').flush(results('digital', [10, 10, 5]));
     await drain(); await fixture.whenStable();
     const placeRows = rows(fixture);
     expect(placeRows.length).toBe(2);
     expect(rowCards(placeRows[0]!).length).toBe(2);
     expect(placeRows[0]!.querySelector('.tie-badge')?.textContent?.trim()).toBe('تعادل في المركز الأول');
     expect(rowCards(placeRows[1]!).length).toBe(1);
-    expect(rowBadge(placeRows[1]!)).toBe('المركز الثاني');
+    expect(rowBadge(placeRows[1]!)).toBe('المركز الثالث');
+  });
+
+  it('التعادل في الأول مع رابع لا يظهر الرابع لأنه خارج المراكز الثلاثة', async () => {
+    const fixture = await standalone();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/admin/results').flush(results('digital', [10, 10, 5, 3]));
+    await drain(); await fixture.whenStable();
+    const placeRows = rows(fixture);
+    expect(placeRows.length).toBe(2);
+    expect(rowCards(placeRows[0]!).length).toBe(2);
+    expect(rowBadge(placeRows[1]!)).toBe('المركز الثالث');
+    expect(text(fixture)).not.toContain('مشروع 4');
   });
 
   it('التعادل في أي مركز يعرض بطاقاته مع لافتة تعادل خاصة به', async () => {
@@ -83,9 +96,22 @@ describe('شاشة الفائزين', () => {
     http.expectOne('/api/admin/results').flush(results('digital', [10, 10, 5, 5, 2]));
     await drain(); await fixture.whenStable();
     const placeRows = rows(fixture);
-    expect(placeRows.length).toBe(3);
-    expect(placeRows.map((row) => rowCards(row).length)).toEqual([2, 2, 1]);
-    expect(placeRows.map((row) => rowBadge(row))).toEqual(['تعادل في المركز الأول', 'تعادل في المركز الثاني', 'المركز الثالث']);
+    expect(placeRows.length).toBe(2);
+    expect(placeRows.map((row) => rowCards(row).length)).toEqual([2, 2]);
+    expect(placeRows.map((row) => rowBadge(row))).toEqual(['تعادل في المركز الأول', 'تعادل في المركز الثالث']);
+    expect(text(fixture)).not.toContain('مشروع 5');
+  });
+
+  it('التعادل في الثاني يعرض الأول ثم تعادل الثاني ولا ثالث', async () => {
+    const fixture = await standalone();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/admin/results').flush(results('digital', [10, 7, 7, 3]));
+    await drain(); await fixture.whenStable();
+    const placeRows = rows(fixture);
+    expect(placeRows.length).toBe(2);
+    expect(placeRows.map((row) => rowBadge(row))).toEqual(['المركز الأول', 'تعادل في المركز الثاني']);
+    expect(placeRows.map((row) => rowCards(row).length)).toEqual([1, 2]);
+    expect(text(fixture)).not.toContain('مشروع 4');
   });
 
   it('قسم بأقل من ثلاثة مراكز يعرض ما هو متاح', async () => {
