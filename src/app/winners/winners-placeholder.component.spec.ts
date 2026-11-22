@@ -46,37 +46,56 @@ describe('شاشة الفائزين', () => {
 
   function text(fixture: { nativeElement: HTMLElement }) { return (fixture.nativeElement as HTMLElement).textContent ?? ''; }
   function cards(fixture: { nativeElement: HTMLElement }) { return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.winner-card')); }
-  function badges(fixture: { nativeElement: HTMLElement }) { return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.rank-badge')).map((badge) => badge.textContent?.trim()); }
+  function rows(fixture: { nativeElement: HTMLElement }) { return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.place-row')); }
+  function rowCards(row: Element) { return row.querySelectorAll('.winner-card'); }
+  function rowBadge(row: Element) { return (row.querySelector('.rank-badge, .tie-badge')?.textContent ?? '').trim(); }
 
-  it('يعرض المراكز الثلاثة الأولى حسب ترتيب الأصوات', async () => {
+  it('يعرض المراكز الثلاثة الأولى كل مركز في صف', async () => {
     const fixture = await standalone();
     const http = TestBed.inject(HttpTestingController);
     http.expectOne('/api/admin/results').flush(results('digital', [9, 7, 5, 3]));
     await drain(); await fixture.whenStable();
-    expect(cards(fixture).length).toBe(3);
-    expect(badges(fixture)).toEqual(['المركز الأول', 'المركز الثاني', 'المركز الثالث']);
+    const placeRows = rows(fixture);
+    expect(placeRows.length).toBe(3);
+    expect(placeRows.map((row) => rowCards(row).length)).toEqual([1, 1, 1]);
+    expect(placeRows.map((row) => rowBadge(row))).toEqual(['المركز الأول', 'المركز الثاني', 'المركز الثالث']);
     expect(text(fixture)).not.toContain('مشروع 4');
   });
 
-  it('المتعادلون في الأول يتقاسمون المركز ثم يُكمل الثاني والثالث', async () => {
+  it('التعادل في الأول يعرض بطاقتي المركز الأول مع لافتة تعادل فوقهما', async () => {
     const fixture = await standalone();
     const http = TestBed.inject(HttpTestingController);
     const body = results('digital', [10, 10, 5]);
     body.sections[0]!.tiedProjects = [1, 2];
     http.expectOne('/api/admin/results').flush(body);
     await drain(); await fixture.whenStable();
-    expect(cards(fixture).length).toBe(3);
-    expect(badges(fixture)).toEqual(['المركز الأول', 'المركز الأول', 'المركز الثاني']);
-    expect(text(fixture)).toContain('تعادل في المركز الأول');
+    const placeRows = rows(fixture);
+    expect(placeRows.length).toBe(2);
+    expect(rowCards(placeRows[0]!).length).toBe(2);
+    expect(placeRows[0]!.querySelector('.tie-badge')?.textContent?.trim()).toBe('تعادل في المركز الأول');
+    expect(rowCards(placeRows[1]!).length).toBe(1);
+    expect(rowBadge(placeRows[1]!)).toBe('المركز الثاني');
   });
 
-  it('قسم بأقل من ثلاثة مشاريع يعرض ما هو متاح', async () => {
+  it('التعادل في أي مركز يعرض بطاقاته مع لافتة تعادل خاصة به', async () => {
+    const fixture = await standalone();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/admin/results').flush(results('digital', [10, 10, 5, 5, 2]));
+    await drain(); await fixture.whenStable();
+    const placeRows = rows(fixture);
+    expect(placeRows.length).toBe(3);
+    expect(placeRows.map((row) => rowCards(row).length)).toEqual([2, 2, 1]);
+    expect(placeRows.map((row) => rowBadge(row))).toEqual(['تعادل في المركز الأول', 'تعادل في المركز الثاني', 'المركز الثالث']);
+  });
+
+  it('قسم بأقل من ثلاثة مراكز يعرض ما هو متاح', async () => {
     const fixture = await standalone();
     const http = TestBed.inject(HttpTestingController);
     http.expectOne('/api/admin/results').flush(results('digital', [7, 2]));
     await drain(); await fixture.whenStable();
-    expect(cards(fixture).length).toBe(2);
-    expect(badges(fixture)).toEqual(['المركز الأول', 'المركز الثاني']);
+    const placeRows = rows(fixture);
+    expect(placeRows.length).toBe(2);
+    expect(placeRows.map((row) => rowBadge(row))).toEqual(['المركز الأول', 'المركز الثاني']);
   });
 
   it('لا شارات مراكز عندما كل الأصوات صفر', async () => {
@@ -85,7 +104,7 @@ describe('شاشة الفائزين', () => {
     http.expectOne('/api/admin/results').flush(results('digital', [0, 0]));
     await drain(); await fixture.whenStable();
     expect(cards(fixture).length).toBe(2);
-    expect(badges(fixture)).toEqual([]);
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.rank-badge, .tie-badge').length).toBe(0);
   });
 
   it('المصدر اليدوي يعرض الفائز المختار فقط دون أصوات أو مراكز', async () => {
@@ -94,7 +113,7 @@ describe('شاشة الفائزين', () => {
     http.expectOne('/api/admin/results').flush(results('manual', [0]));
     await drain(); await fixture.whenStable();
     expect(cards(fixture).length).toBe(1);
-    expect(badges(fixture)).toEqual([]);
+    expect((fixture.nativeElement as HTMLElement).querySelectorAll('.rank-badge, .tie-badge').length).toBe(0);
     expect(text(fixture)).not.toContain('صوت');
     expect(text(fixture)).toContain('اختيار الإدارة');
   });

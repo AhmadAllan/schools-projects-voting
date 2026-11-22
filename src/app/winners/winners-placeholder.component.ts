@@ -26,22 +26,27 @@ const RANK_LABELS = ['', 'المركز الأول', 'المركز الثاني',
         <h1>{{ current()!.section_name }}</h1>
         @if (isManual()) {
           <p class="badge">اختيار الإدارة</p>
-        } @else if (isTie()) {
-          <p class="badge tie">تعادل في المركز الأول</p>
         }
       </header>
 
-      <div class="podium" [class.tied]="isTie()">
-        @for (entry of ranked(); track entry.project.project_id) {
-          <article class="winner-card">
-            @if (entry.rank > 0) { <p class="rank-badge">{{ rankLabel(entry.rank) }}</p> }
-            @if (entry.project.image_url) {
-              <img [src]="entry.project.image_url" [alt]="entry.project.project_name">
-            }
-            <h2>{{ entry.project.project_name }}</h2>
-            @if (entry.project.school_name) { <p class="school">{{ entry.project.school_name }}</p> }
-            @if (!isManual()) { <strong>{{ entry.project.votes }} صوت</strong> }
-          </article>
+      <div class="podium">
+        @for (place of places(); track place.rank) {
+          <section class="place-row" [class.tied]="place.tied">
+            @if (place.tied) { <p class="tie-badge">تعادل في {{ place.label }}</p> }
+            @else if (place.rank > 0) { <p class="rank-badge">{{ place.label }}</p> }
+            <div class="row-cards">
+              @for (project of place.projects; track project.project_id) {
+                <article class="winner-card">
+                  @if (project.image_url) {
+                    <img [src]="project.image_url" [alt]="project.project_name">
+                  }
+                  <h2>{{ project.project_name }}</h2>
+                  @if (project.school_name) { <p class="school">{{ project.school_name }}</p> }
+                  @if (!isManual()) { <strong>{{ project.votes }} صوت</strong> }
+                </article>
+              }
+            </div>
+          </section>
         }
       </div>
 
@@ -62,11 +67,13 @@ const RANK_LABELS = ['', 'المركز الأول', 'المركز الثاني',
     header small{font-size:clamp(1rem,2vw,1.4rem);color:var(--text-muted)}
     .badge{display:inline-block;margin:0;padding:.4rem 1rem;border-radius:var(--radius-pill);background:var(--ok-bg);color:var(--ok-text);font-size:clamp(1rem,2vw,1.4rem)}
     .badge.tie{background:var(--warn-bg);color:var(--warn-text)}
-    .podium{display:grid;grid-template-columns:1fr;gap:1.25rem;max-width:900px;margin:0 auto;width:100%}
-    .podium.tied{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));max-width:1200px}
-    .winners:not(.tied) .podium:not(.tied){grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+    .podium{display:flex;flex-direction:column;gap:1.5rem;max-width:1000px;margin:0 auto;width:100%}
+    .place-row{display:grid;justify-items:center;gap:.75rem}
+    .place-row .tie-badge{margin:0;padding:.4rem 1.25rem;border-radius:var(--radius-pill);background:var(--warn-bg);color:var(--warn-text);font-size:clamp(1rem,2vw,1.35rem)}
+    .row-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1.25rem;width:100%}
+    .place-row:not(.tied) .row-cards{grid-template-columns:minmax(0,480px)}
     .winner-card{display:flex;flex-direction:column;align-items:center;gap:.75rem;padding:clamp(1rem,3vw,2rem);border:2px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-md)}
-    .rank-badge{margin:0;padding:.35rem 1rem;border-radius:var(--radius-pill);background:var(--primary);color:var(--on-primary);font-size:clamp(1rem,2vw,1.3rem)}
+    .rank-badge{margin:0;padding:.4rem 1.25rem;border-radius:var(--radius-pill);background:var(--primary);color:var(--on-primary);font-size:clamp(1rem,2vw,1.35rem)}
     .winner-card img{width:100%;max-height:240px;object-fit:contain;border-radius:.75rem}
     .winner-card h2{font-size:clamp(1.5rem,4vw,3rem);margin:0}
     .winner-card .school{margin:0;color:var(--text-muted);font-size:clamp(1rem,2vw,1.4rem)}
@@ -89,16 +96,16 @@ export class WinnersPlaceholderComponent {
   readonly sections = computed(() => this.results()?.sections ?? []);
   readonly current = computed(() => this.sections()[this.sectionIndex()] ?? null);
   readonly isManual = computed(() => this.results()?.source === 'manual');
-  readonly isTie = computed(() => (this.current()?.tiedProjects.length ?? 0) > 1);
-  readonly ranked = computed<Array<{ project: ResultProject; rank: number }>>(() => {
+  readonly places = computed<Array<{ rank: number; label: string; tied: boolean; projects: ResultProject[] }>>(() => {
     const section = this.current();
     if (!section) return [];
-    if (this.isManual()) return section.projects.map((project) => ({ project, rank: 0 }));
+    if (this.isManual()) return [{ rank: 0, label: '', tied: false, projects: section.projects }];
     const totals = [...new Set(section.projects.map((project) => project.votes))].filter((votes) => votes > 0).sort((a, b) => b - a).slice(0, 3);
-    if (!totals.length) return section.projects.slice(0, 3).map((project) => ({ project, rank: 0 }));
-    return section.projects
-      .filter((project) => totals.includes(project.votes))
-      .map((project) => ({ project, rank: totals.indexOf(project.votes) + 1 }));
+    if (!totals.length) return [{ rank: 0, label: '', tied: false, projects: section.projects.slice(0, 3) }];
+    return totals.map((votes, index) => {
+      const projects = section.projects.filter((project) => project.votes === votes);
+      return { rank: index + 1, label: RANK_LABELS[index + 1] ?? '', tied: projects.length > 1, projects };
+    });
   });
 
   constructor() { afterNextRender(() => { void this.load(); }); }
@@ -120,7 +127,6 @@ export class WinnersPlaceholderComponent {
     try { return await this.api.getAdminResults(); } catch { return await this.api.getPublicResults(); }
   }
 
-  rankLabel(rank: number) { return RANK_LABELS[rank] ?? ''; }
   toAdmin() { void this.router.navigate(['/admin']); }
 
   @HostListener('document:keydown', ['$event'])
