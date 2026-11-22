@@ -5,6 +5,7 @@ import { validateSubmission, normalizedFullName } from './votes';
 import { VoteRequest } from './types';
 import { getPublicBallot, publicResultsGate, withCacheHeaders } from './public';
 import { normalizeProjectPatch, normalizeSectionPatch, validateSection, validateSchoolName, validateImageUpload } from './admin-content';
+import { buildDeleteStatements, cascadePreview, DeleteData, DeleteKind, parseDeleteIds } from './admin-delete';
 import { csvWithBom } from './admin-results';
 import { displayImageUrl, imageResponseBody } from './db';
 
@@ -192,6 +193,46 @@ app.put('/api/admin/projects/:id', async (c) => {
   await c.env.DB.prepare(`UPDATE projects SET ${sets} WHERE id=?`).bind(...entries.map(([,value]) => value), id).run();
   return json({error:'OK',message:'تم تحديث المشروع'});
 });
+
+/** يجمع بيانات المعاينة: أسماء العناصر المختارة والمشاريع المرتبطة بها وأصواتها — دون كتابة شيء. */
+async function deletePreviewData(db: D1Database, kind: DeleteKind, ids: number[]) {
+  const marks = ids.map(() => '?').join(',');
+  const projectFilter = kind === 'sections' ? `p.section_id IN (${marks})` : kind === 'schools' ? `p.school_id IN (${marks})` : `p.id IN (${marks})`;
+  const projectsQuery = `SELECT p.id,p.name,p.section_id,p.school_id,se.name AS section_name,sc.name AS school_name FROM projects p JOIN sections se ON se.id=p.section_id JOIN schools sc ON sc.id=p.school_id WHERE ${projectFilter}`;
+  const projects = (await db.prepare(projectsQuery).bind(...ids).all()).results as unknown as DeleteData['projects'];
+  const sections = kind === 'sections' ? (await db.prepare(`SELECT id,name FROM sections WHERE id IN (${marks})`).bind(...ids).all()).results as unknown as DeleteData['sections'] : [];
+  const schools = kind === 'schools' ? (await db.prepare(`SELECT id,name FROM schools WHERE id IN (${marks})`).bind(...ids).all()).results as unknown as DeleteData['schools'] : [];
+  const projectIds = projects.map((project) => project.id);
+  const votes = projectIds.length
+    ? (await db.prepare(`SELECT project_id FROM votes WHERE project_id IN (${projectIds.map(() => '?').join(',')})`).bind(...projectIds).all()).results as unknown as DeleteData['votes']
+    : [];
+  const data: DeleteData = { sections, schools, projects, votes, winners: [], manualProjectId: null };
+  return { data, projectIds };
+}
+
+for (const kind of ['sections', 'schools', 'projects'] as const) {
+  app.post(`/api/admin/${kind}/delete-preview`, async (c) => {
+    if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401);
+    const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+    const check = parseDeleteIds(body);
+    if (!check.valid) return json({error:'VALIDATION_ERROR',message:'قائمة معرفات غير صالحة'},422);
+    const { data } = await deletePreviewData(c.env.DB, kind, check.ids);
+    return json({ error: 'OK', ...cascadePreview(kind, check.ids, data) });
+  });
+
+  app.post(`/api/admin/${kind}/delete-bulk`, async (c) => {
+    if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401);
+    const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
+    const check = parseDeleteIds(body);
+    if (!check.valid) return json({error:'VALIDATION_ERROR',message:'قائمة معرفات غير صالحة'},422);
+    const { data, projectIds } = await deletePreviewData(c.env.DB, kind, check.ids);
+    const preview = cascadePreview(kind, check.ids, data);
+    const statements = buildDeleteStatements(kind, check.ids, projectIds);
+    if (statements.length) await c.env.DB.batch(statements.map((statement) => c.env.DB.prepare(statement.sql).bind(...statement.bind)));
+    return json({ error: 'OK', deleted: { sections: kind === 'sections' ? preview.items.length : 0, schools: kind === 'schools' ? preview.items.length : 0, projects: projectIds.length, votes: preview.votes } });
+  });
+}
+
 
 app.get('/api/admin/settings', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare('SELECT key,value FROM settings').all()).results); });
 app.put('/api/admin/settings', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<Record<string,string>>(); const entries=Object.entries(body); if(entries.length){ await c.env.DB.batch(entries.map(([key,value])=>c.env.DB.prepare('INSERT INTO settings(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').bind(key,String(value)))); } return json({error:'OK',message:'تم حفظ الإعدادات'}); });
