@@ -15,13 +15,16 @@ const ballot = {
 };
 
 describe('شاشة الكشك', () => {
+  let navigate: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
+    navigate = vi.fn(() => Promise.resolve(true));
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
+        { provide: Router, useValue: { navigate } },
       ],
     });
   });
@@ -132,6 +135,36 @@ describe('شاشة الكشك', () => {
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('button.welcome')).toBeTruthy();
+  });
+
+  it('زر العودة إلى لوحة الإدارة يفتح التحذير أثناء التصويت', async () => {
+    const fixture = await kiosk();
+    await atSelection(fixture);
+    const el = fixture.nativeElement as HTMLElement;
+    el.querySelector<HTMLButtonElement>('.project-card')!.click();
+    await fixture.whenStable();
+    const store = TestBed.inject(VoterStore);
+    el.querySelector<HTMLButtonElement>('.admin-exit')!.click();
+    await fixture.whenStable();
+    const dialog = el.querySelector<HTMLDialogElement>('dialog')!;
+    expect(dialog.open).toBe(true);
+    expect(store.selections().length).toBe(1);
+    expect(navigate).not.toHaveBeenCalled();
+    dialog.returnValue = 'confirm';
+    fixture.componentInstance.onResetDialogClose();
+    await fixture.whenStable();
+    expect(store.step()).toBe(0);
+    expect(store.selections().length).toBe(0);
+    expect(navigate).toHaveBeenCalledWith(['/admin']);
+  });
+
+  it('العودة من شاشة الترحيب تنقل مباشرة بدون تحذير', async () => {
+    const fixture = await kiosk();
+    const el = fixture.nativeElement as HTMLElement;
+    el.querySelector<HTMLButtonElement>('.admin-exit')!.click();
+    await fixture.whenStable();
+    expect(navigate).toHaveBeenCalledWith(['/admin']);
+    expect(el.querySelector<HTMLDialogElement>('dialog')!.open).toBe(false);
   });
 
   it('زر المصوّت التالي يلغي مؤقت الخمس ثوانٍ فلا يُمسح اسم المصوّت الجديد', async () => {
