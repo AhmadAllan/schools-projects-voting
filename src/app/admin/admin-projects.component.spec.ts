@@ -107,6 +107,41 @@ describe('صفحة المشاريع — التعديل', () => {
     expect((fixture.nativeElement.querySelector('dialog') as HTMLDialogElement).open).toBe(false);
   });
 
+  it('يمسح حقل ملف التعديل عند إعادة فتح النافذة', async () => {
+    const { fixture } = await setup();
+    fixture.componentInstance.edit(project as any);
+    fixture.detectChanges();
+    const input = (fixture.nativeElement as HTMLElement).querySelector('dialog input[type="file"]') as HTMLInputElement;
+    Object.defineProperty(input, 'value', { value: 'C:\\fake\\old.png', writable: true, configurable: true });
+    expect(input.value).toBe('C:\\fake\\old.png');
+    fixture.componentInstance.edit(project as any);
+    expect(input.value).toBe('');
+  });
+
+  it('يمسح حقل ملف الإضافة بعد نجاح الإضافة', async () => {
+    const { fixture, http } = await setup();
+    const comp = fixture.componentInstance;
+    comp.form.setValue({ name: 'مشروع جديد', description: 'وصف', sectionId: 1, schoolId: 2, url: '', imageUrl: '' });
+    comp.file.set(new File([new Uint8Array([1])], 'a.png', { type: 'image/png' }));
+    const input = (fixture.nativeElement as HTMLElement).querySelector('main > form input[type="file"]') as HTMLInputElement;
+    Object.defineProperty(input, 'value', { value: 'C:\\fake\\a.png', writable: true, configurable: true });
+    const adding = comp.add();
+    const upload = http.expectOne({ method: 'POST', url: '/api/admin/images' });
+    upload.flush({ id: 7 });
+    await new Promise((resolve) => setTimeout(resolve));
+    const req = http.expectOne({ method: 'POST', url: '/api/admin/projects' });
+    req.flush({ error: 'OK', message: 'تمت إضافة المشروع' }, { status: 201, statusText: 'Created' });
+    await new Promise((resolve) => setTimeout(resolve));
+    http.expectOne('/api/admin/projects').flush([project]);
+    http.expectOne('/api/admin/sections').flush(sections);
+    http.expectOne('/api/admin/schools').flush(schools);
+    await adding;
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(input.value).toBe('');
+    expect(comp.file()).toBeNull();
+  });
+
   it('يعرض خطأ الحفظ داخل النافذة ويبقيها مفتوحة', async () => {
     const { fixture, http } = await setup();
     fixture.componentInstance.edit(project as any);

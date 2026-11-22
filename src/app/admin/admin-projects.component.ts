@@ -37,7 +37,7 @@ import { AdminNavComponent } from './admin-nav.component';
       <label>رابط المشروع (اختياري) <input formControlName="url" type="url" placeholder="https://"></label>
       <label>رابط صورة (اختياري) <input formControlName="imageUrl" type="url" placeholder="https://"></label>
       <label>أو ارفع صورة (حتى 300 كيلوبايت)
-        <input type="file" accept="image/png,image/jpeg,image/webp" (change)="pickFile($event)">
+        <input #fileInput type="file" accept="image/png,image/jpeg,image/webp" (change)="pickFile($event)">
       </label>
       @if (file()) { <p class="admin-ok">تم اختيار: {{ file()!.name }}</p> }
       <button class="btn primary" type="submit" [disabled]="form.invalid || busy()">{{ busy() ? 'جارٍ الحفظ…' : 'إضافة' }}</button>
@@ -98,7 +98,7 @@ import { AdminNavComponent } from './admin-nav.component';
         <label>رابط المشروع (اختياري) <input formControlName="url" type="url" placeholder="https://"></label>
         <label>رابط صورة (اختياري) <input formControlName="imageUrl" type="url" placeholder="https://"></label>
         <label>أو ارفع صورة جديدة (حتى 300 كيلوبايت)
-          <input type="file" accept="image/png,image/jpeg,image/webp" (change)="pickEditFile($event)">
+          <input #editFileInput type="file" accept="image/png,image/jpeg,image/webp" (change)="pickEditFile($event)">
         </label>
         @if (editFile()) { <p class="admin-ok">تم اختيار: {{ editFile()!.name }}</p> }
         @if (editError()) { <p class="admin-error">{{ editError() }}</p> }
@@ -137,6 +137,8 @@ export class AdminProjectsComponent {
   readonly editBusy = signal(false);
   readonly editFile = signal<File | null>(null);
   readonly editError = signal('');
+  readonly editFileInput = viewChild.required<ElementRef<HTMLInputElement>>('editFileInput');
+  readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
   readonly editForm = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(200), notBlank]],
     description: ['', [Validators.required, Validators.maxLength(2000)]],
@@ -191,6 +193,7 @@ export class AdminProjectsComponent {
       });
       this.form.reset({ name: '', description: '', sectionId: null, schoolId: null, url: '', imageUrl: '' });
       this.file.set(null);
+      this.fileInput().nativeElement.value = '';
       await this.load();
     } catch { this.error.set('تعذر إضافة المشروع. تحقق من البيانات وحجم الصورة.'); }
     finally { this.busy.set(false); }
@@ -207,6 +210,7 @@ export class AdminProjectsComponent {
     this.editing.set(project);
     this.editFile.set(null);
     this.editError.set('');
+    this.editFileInput().nativeElement.value = '';
     this.editForm.patchValue({
       name: project.name,
       description: project.description,

@@ -177,6 +177,8 @@ dialog.admin-dialog {
   box-shadow: var(--shadow-lg);
   padding: 1.5rem;
   max-width: min(480px, 90vw);
+  max-height: 85dvh;
+  overflow-y: auto;
 }
 dialog.admin-dialog:modal { overscroll-behavior: contain; }
 dialog.admin-dialog::backdrop {
