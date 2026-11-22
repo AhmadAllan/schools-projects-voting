@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeProjectPatch, normalizeSectionPatch, validateSection, validateProjectUrl, validateImageUpload } from './admin-content';
+import { normalizeProjectPatch, normalizeSectionPatch, validateSection, validateProjectUrl, validateImageUpload, validateSchoolName } from './admin-content';
 describe('إدارة المحتوى', () => {
   it('يتحقق من القسم وعنوان المشروع ونوع الصورة وحجمها', () => {
     expect(validateSection('المواقع').valid).toBe(true);
@@ -41,5 +41,11 @@ describe('إدارة المحتوى', () => {
     expect(normalizeProjectPatch({ section_id: 'x' }).valid).toBe(false);
     expect(normalizeProjectPatch({ school_id: 0 }).valid).toBe(false);
     expect(normalizeProjectPatch({ school_id: 2.5 }).valid).toBe(false);
+  });
+
+  it('يتحقق من اسم المدرسة للتعديل', () => {
+    expect(validateSchoolName('  مدرسة الأمل  ')).toEqual({ valid: true, value: 'مدرسة الأمل' });
+    expect(validateSchoolName(' ').valid).toBe(false);
+    expect(validateSchoolName('x'.repeat(151)).valid).toBe(false);
   });
 });

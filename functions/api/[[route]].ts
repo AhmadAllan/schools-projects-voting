@@ -4,7 +4,7 @@ import { calculateProjectVotes, groupResultsBySection, VoteSource } from './vote
 import { validateSubmission, normalizedFullName } from './votes';
 import { VoteRequest } from './types';
 import { getPublicBallot, publicResultsGate, withCacheHeaders } from './public';
-import { normalizeProjectPatch, normalizeSectionPatch, validateSection, validateImageUpload } from './admin-content';
+import { normalizeProjectPatch, normalizeSectionPatch, validateSection, validateSchoolName, validateImageUpload } from './admin-content';
 import { csvWithBom } from './admin-results';
 import { displayImageUrl } from './db';
 
@@ -148,6 +148,15 @@ app.put('/api/admin/sections/:id', async (c) => {
 
 app.get('/api/admin/schools', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare('SELECT * FROM schools ORDER BY name').all()).results); });
 app.post('/api/admin/schools', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); const body=await c.req.json<{name:string}>(); if(!body.name?.trim()) return json({error:'VALIDATION_ERROR',message:'اسم المدرسة مطلوب'},422); await c.env.DB.prepare('INSERT INTO schools(name) VALUES (?)').bind(body.name.trim()).run(); return json({error:'OK',message:'تمت الإضافة'},201); });
+app.put('/api/admin/schools/:id', async (c) => {
+  if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401);
+  const id = Number(c.req.param('id'));
+  const body = await c.req.json<{ name?: string }>().catch(() => ({}));
+  const check = validateSchoolName(body.name ?? '');
+  if (!Number.isInteger(id) || !check.valid) return json({error:'VALIDATION_ERROR',message:'اسم المدرسة مطلوب'},422);
+  await c.env.DB.prepare('UPDATE schools SET name=? WHERE id=?').bind(check.value, id).run();
+  return json({error:'OK',message:'تم تحديث المدرسة'});
+});
 
 app.get('/api/admin/projects', async (c) => { if (!await requireAdmin(c)) return json({error:'UNAUTHORIZED',message:'يجب تسجيل الدخول'},401); return json((await c.env.DB.prepare(`SELECT p.*,se.name AS section_name,sc.name AS school_name FROM projects p JOIN sections se ON se.id=p.section_id JOIN schools sc ON sc.id=p.school_id ORDER BY se.sort_order ASC,p.sort_order ASC,p.id ASC`).all()).results); });
 app.post('/api/admin/projects', async (c) => {
