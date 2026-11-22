@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
 import { AdminVoter } from '../core/models';
@@ -43,14 +43,34 @@ import { channelLabel, filterVoters, formatDateTime } from './admin-helpers';
         }
       </tbody>
     </table>
+
+  <dialog class="admin-dialog" #voidDialog aria-labelledby="void-title">
+    <h2 id="void-title">إلغاء أصوات الناخب</h2>
+    <p>سيتم إلغاء أصوات <strong>{{ voiding()?.full_name }}</strong>. لا يمكن التراجع إلا بالاستعادة لاحقًا.</p>
+    <label class="void-reason">سبب الإلغاء
+      <textarea [value]="voidReason()" (input)="voidReason.set($any($event.target)?.value)" rows="3"></textarea>
+    </label>
+    @if (voidError()) { <p class="admin-error" role="alert">{{ voidError() }}</p> }
+    <div class="dialog-actions">
+      <button type="button" class="btn" (click)="closeVoid()">إلغاء</button>
+      <button type="button" class="btn danger" [disabled]="voidBusy()" (click)="confirmVoid()">تأكيد الإلغاء</button>
+    </div>
+  </dialog>
   </main>`,
-  styles: `.search { display: grid; gap: .4rem; max-width: 320px; margin: 1rem 0; }`,
+  styles: `.search { display: grid; gap: .4rem; max-width: 320px; margin: 1rem 0; }
+    .void-reason { display: grid; gap: .4rem; margin: .75rem 0; }
+    .dialog-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1rem; }`,
 })
 export class AdminVotersComponent {
   private api = inject(ApiService);
   readonly voters = signal<AdminVoter[]>([]);
   readonly query = signal('');
   readonly error = signal('');
+  readonly voiding = signal<AdminVoter | null>(null);
+  readonly voidReason = signal('تم الإلغاء من الإدارة');
+  readonly voidError = signal('');
+  readonly voidBusy = signal(false);
+  readonly voidDialog = viewChild.required<ElementRef<HTMLDialogElement>>('voidDialog');
   readonly visible = computed(() => filterVoters(this.voters(), this.query()));
   readonly channelLabel = channelLabel;
   readonly formatDateTime = formatDateTime;
@@ -62,13 +82,29 @@ export class AdminVotersComponent {
     catch { this.error.set('تعذر تحميل الناخبين.'); }
   }
 
-  async voidVoter(voter: AdminVoter) {
-    const reason = window.prompt('سبب إلغاء أصوات هذا الناخب؟', 'تم الإلغاء من الإدارة');
-    if (reason === null) return;
+  voidVoter(voter: AdminVoter) {
+    this.voiding.set(voter);
+    this.voidReason.set(voter.void_reason ?? 'تم الإلغاء من الإدارة');
+    this.voidError.set('');
+    const dialog = this.voidDialog().nativeElement;
+    if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
+  }
+
+  closeVoid() {
+    const dialog = this.voidDialog().nativeElement;
+    if (typeof dialog.close === 'function') dialog.close(); else dialog.removeAttribute('open');
+  }
+
+  async confirmVoid() {
+    const voter = this.voiding();
+    if (!voter || this.voidBusy()) return;
+    this.voidBusy.set(true);
     try {
-      await this.api.voidVoter(voter.id, reason || 'تم الإلغاء من الإدارة');
+      await this.api.voidVoter(voter.id, this.voidReason().trim() || 'تم الإلغاء من الإدارة');
+      this.closeVoid();
       await this.load();
-    } catch { this.error.set('تعذر إلغاء أصوات الناخب.'); }
+    } catch { this.voidError.set('تعذر إلغاء أصوات الناخب.'); }
+    finally { this.voidBusy.set(false); }
   }
 
   async restore(voter: AdminVoter) {
