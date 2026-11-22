@@ -76,4 +76,19 @@ describe('نموذج الاسم الرباعي', () => {
     expect(changes.at(-1)?.grandfather).toBe('سليم');
     expect(changes.at(-1)?.first).toBe(STORED.first);
   });
+
+  it('حقل من المسافات فقط يُرفض كما في السيرفر (بعد الحذف)', async () => {
+    const fixture = await render();
+    const el = fixture.nativeElement as HTMLElement;
+    const inputs = Array.from(el.querySelectorAll<HTMLInputElement>('input'));
+    ['   ', 'أحمد', 'خالد', 'العبدالله'].forEach((value, index) => {
+      inputs[index]!.value = value;
+      inputs[index]!.dispatchEvent(new Event('input'));
+    });
+    await fixture.whenStable();
+    expect(continueButton(el).disabled).toBe(true);
+    inputs[0]!.dispatchEvent(new Event('blur'));
+    await fixture.whenStable();
+    expect(el.querySelector('.field-error')).toBeTruthy();
+  });
 });

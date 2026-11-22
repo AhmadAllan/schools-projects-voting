@@ -211,4 +211,15 @@ describe('شاشة الكشك', () => {
     await fixture.whenStable();
     expect(dialog.open).toBe(false);
   });
+
+  it('إعادة الضبط التلقائية تغلق نافذة الخمول وتعود للترحيب', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fixture = await kiosk();
+    await vi.advanceTimersByTimeAsync(60_000);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('button.welcome')).toBeTruthy();
+    const dialog = el.querySelector<HTMLDialogElement>('dialog.inactivity-dialog')!;
+    expect(dialog.open).toBe(false);
+  });
 });

@@ -1,8 +1,11 @@
 import { ChangeDetectionStrategy, Component, effect, inject, input, output, untracked } from '@angular/core';
-import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { NonNullableFormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { NameParts } from '../core/models';
 
 const ARABIC_NAME_PATTERN = /^[ء-ي ]{3,30}$/;
+/** يقبل الحقل فقط إذا تطابق النمط بعد حذف المسافات — كما يحسب السيرفر الأحرف. */
+const arabicNameValidator = (control: { value: string }): ValidationErrors | null =>
+  ARABIC_NAME_PATTERN.test(control.value.trim()) ? null : { arabicName: true };
 const NAME_ERROR = 'يجب أن يتكوّن الاسم من 3 أحرف عربية على الأقل';
 const EMPTY_NAME: NameParts = { first: '', father: '', grandfather: '', family: '' };
 
@@ -52,10 +55,10 @@ export class VoterNameFormComponent {
   ];
 
   readonly form = this.fb.group({
-    first: [EMPTY_NAME.first, [Validators.required, Validators.pattern(ARABIC_NAME_PATTERN)]],
-    father: [EMPTY_NAME.father, [Validators.required, Validators.pattern(ARABIC_NAME_PATTERN)]],
-    grandfather: [EMPTY_NAME.grandfather, [Validators.required, Validators.pattern(ARABIC_NAME_PATTERN)]],
-    family: [EMPTY_NAME.family, [Validators.required, Validators.pattern(ARABIC_NAME_PATTERN)]],
+    first: [EMPTY_NAME.first, [Validators.required, arabicNameValidator]],
+    father: [EMPTY_NAME.father, [Validators.required, arabicNameValidator]],
+    grandfather: [EMPTY_NAME.grandfather, [Validators.required, arabicNameValidator]],
+    family: [EMPTY_NAME.family, [Validators.required, arabicNameValidator]],
   });
 
   constructor() {

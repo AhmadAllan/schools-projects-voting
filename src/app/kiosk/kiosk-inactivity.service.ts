@@ -6,7 +6,7 @@ export class KioskInactivityService {
   start(onReset: () => void) {
     this.clear();
     this.warningTimer = setTimeout(() => { this.warning.set(true); this.countdown.set(10); this.countdownTimer = setInterval(() => this.countdown.update((n) => Math.max(0, n - 1)), 1000); }, 50_000);
-    this.idleTimer = setTimeout(onReset, 60_000);
+    this.idleTimer = setTimeout(() => { this.clear(); onReset(); }, 60_000);
   }
   clear() { clearTimeout(this.idleTimer); clearTimeout(this.warningTimer); clearInterval(this.countdownTimer); this.warning.set(false); }
   touch(onReset: () => void) { this.start(onReset); }
