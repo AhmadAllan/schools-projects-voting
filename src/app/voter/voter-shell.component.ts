@@ -5,6 +5,7 @@ import { Ballot, BallotProject } from '../core/models';
 import { VoterStore } from './voter-store.service';
 
 @Component({
+  selector: 'app-voter-shell',
   standalone: true,
   imports: [FormsModule],
   template: `
@@ -40,7 +41,7 @@ import { VoterStore } from './voter-store.service';
   styles: [`.voter-shell{display:block;width:100%;justify-items:stretch;max-width:1100px;margin:auto;padding:1rem}.voter-shell header{display:flex;justify-content:space-between}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem}.project-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:.4rem;min-height:180px;text-align:start;padding:1rem;border:2px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);box-shadow:var(--shadow-sm);cursor:pointer;transition:box-shadow .15s ease-out,translate .15s ease-out,background-color .15s ease-out}.project-card img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:var(--radius)}.project-card b{position:absolute;top:.6rem;inset-inline-end:.6rem;width:1.5rem;height:1.5rem;border-radius:50%;background:var(--primary);color:var(--on-primary);display:grid;place-items:center}.project-card:disabled{cursor:not-allowed}.project-card:has(b){border-color:var(--primary);background:var(--surface-selected);box-shadow:var(--shadow-md)}@media(prefers-reduced-motion:no-preference){.project-card:hover:not(:disabled){translate:0 -2px;box-shadow:var(--shadow-md)}}.primary{min-height:56px;padding:.75rem 1.5rem}.sticky{position:sticky;bottom:1rem;width:100%;box-shadow:var(--shadow-md)}label{display:grid;gap:.5rem;margin:1rem 0}input{min-height:56px;padding:.75rem}`]
 })
 export class VoterShellComponent {
-  readonly store = inject(VoterStore); readonly step = signal(0); readonly ballot = signal<Ballot|null>(null);
+  readonly store = inject(VoterStore); readonly step = this.store.step; readonly ballot = signal<Ballot|null>(null);
   private api = inject(ApiService);
   constructor() { void this.api.getBallot().then((ballot) => this.ballot.set(ballot)); }
   projectsFor(sectionId: number) { return (this.ballot()?.projects ?? []).filter((project) => project.section_id === sectionId); }

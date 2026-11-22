@@ -7,6 +7,7 @@ import { ResultProject, ResultsResponse } from '../core/models';
 const RANK_LABELS = ['', 'المركز الأول', 'المركز الثاني', 'المركز الثالث'];
 
 @Component({
+  selector: 'app-winners',
   standalone: true,
   template: `
   <main class="winners" [class.embedded]="embedded()">

@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 import { adminGuard, kioskGuard } from './core/auth.guard';
 
 export const routes: Routes = [
-  { path: '', loadComponent: () => import('./voter/voter-shell.component').then((m) => m.VoterShellComponent) },
+  { path: '', loadComponent: () => import('./voter/home-shell.component').then((m) => m.HomeShellComponent) },
   { path: 'kiosk', loadComponent: () => import('./kiosk/kiosk-placeholder.component').then((m) => m.KioskPlaceholderComponent), canActivate: [kioskGuard] },
   { path: 'admin/login', loadComponent: () => import('./admin/login-placeholder.component').then((m) => m.LoginPlaceholderComponent) },
   { path: 'admin/sections', loadComponent: () => import('./admin/admin-sections.component').then((m) => m.AdminSectionsComponent), canActivate: [adminGuard] },
