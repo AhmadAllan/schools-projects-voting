@@ -1,18 +1,27 @@
 import { ChangeDetectionStrategy, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ApiService } from '../core/api.service';
-import { AdminSchool } from '../core/models';
+import { AdminSchool, DeletePreview } from '../core/models';
 import { notBlank } from './admin-helpers';
 import { AdminNavComponent } from './admin-nav.component';
+import { BulkDeleteDialogComponent } from './bulk-delete-dialog.component';
 
 @Component({
-  imports: [ReactiveFormsModule, AdminNavComponent],
+  imports: [ReactiveFormsModule, AdminNavComponent, BulkDeleteDialogComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
   <main class="admin-shell">
     <app-admin-nav />
     <h1>المدارس</h1>
     @if (error()) { <p class="admin-error">{{ error() }}</p> }
+    @if (summary()) { <p class="admin-ok" role="status">{{ summary() }}</p> }
+
+    @if (selected().size) {
+      <div class="bulk-bar">
+        <span>المحدد: {{ selected().size }}</span>
+        <button type="button" class="btn danger" (click)="requestDelete([...selected()])">حذف المحدد ({{ selected().size }})</button>
+      </div>
+    }
 
     <form class="admin-form" [formGroup]="form" (ngSubmit)="add()">
       <h2>إضافة مدرسة</h2>
@@ -21,15 +30,19 @@ import { AdminNavComponent } from './admin-nav.component';
     </form>
 
     <table class="admin-table">
-      <thead><tr><th>المدرسة</th><th></th></tr></thead>
+      <thead><tr><th class="check-col"><input type="checkbox" [checked]="allSelected()" (change)="toggleSelectAll()" aria-label="تحديد كل المدارس"></th><th>المدرسة</th><th></th></tr></thead>
       <tbody>
         @for (school of schools(); track school.id) {
           <tr>
+            <td class="check-col"><input type="checkbox" [checked]="selected().has(school.id)" (change)="toggleSelect(school.id)" [attr.aria-label]="'تحديد ' + school.name"></td>
             <td>{{ school.name }}</td>
-            <td><button class="btn" (click)="edit(school)">تعديل</button></td>
+            <td>
+              <button class="btn" (click)="edit(school)">تعديل</button>
+              <button class="btn danger" (click)="requestDelete([school.id])">حذف</button>
+            </td>
           </tr>
         } @empty {
-          <tr><td colspan="2">لا توجد مدارس بعد.</td></tr>
+          <tr><td colspan="3">لا توجد مدارس بعد.</td></tr>
         }
       </tbody>
     </table>
@@ -45,9 +58,15 @@ import { AdminNavComponent } from './admin-nav.component';
         </div>
       </form>
     </dialog>
+
+    <app-bulk-delete-dialog #deleteDialog title="تأكيد حذف المدارس"
+      [loading]="deleteLoading()" [preview]="deletePreview()" [busy]="deleteBusy()" [error]="deleteError()"
+      (confirmed)="confirmDelete()" />
   </main>`,
   styles: `dialog label { display: grid; gap: .4rem; margin: .75rem 0; }
-    .dialog-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1rem; }`,
+    .dialog-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1rem; }
+    .bulk-bar { display: flex; align-items: center; gap: .75rem; margin: .75rem 0; }
+    .check-col { width: 2.5rem; text-align: center; }`,
 })
 export class AdminSchoolsComponent {
   private api = inject(ApiService);
@@ -58,6 +77,14 @@ export class AdminSchoolsComponent {
   readonly form = this.fb.group({ name: ['', [Validators.required, Validators.maxLength(150), notBlank]] });
 
   readonly editDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editDialog');
+  readonly deleteDialog = viewChild.required<BulkDeleteDialogComponent>('deleteDialog');
+  readonly selected = signal<Set<number>>(new Set());
+  readonly deleteLoading = signal(false);
+  readonly deletePreview = signal<DeletePreview | null>(null);
+  readonly deleteBusy = signal(false);
+  readonly deleteError = signal('');
+  readonly summary = signal('');
+  private pendingDeleteIds: number[] = [];
   readonly editing = signal<AdminSchool | null>(null);
   readonly editBusy = signal(false);
   readonly editError = signal('');
@@ -101,5 +128,51 @@ export class AdminSchoolsComponent {
       await this.load();
     } catch { this.editError.set('تعذر تحديث المدرسة.'); }
     finally { this.editBusy.set(false); }
+  }
+
+  protected allSelected() {
+    const schools = this.schools();
+    return schools.length > 0 && schools.every((school) => this.selected().has(school.id));
+  }
+
+  protected toggleSelect(id: number) {
+    this.selected.update((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  protected toggleSelectAll() {
+    this.selected.update((current) => {
+      if (this.schools().every((school) => current.has(school.id))) return new Set<number>();
+      return new Set(this.schools().map((school) => school.id));
+    });
+  }
+
+  async requestDelete(ids: number[]) {
+    this.pendingDeleteIds = ids;
+    this.deleteLoading.set(true);
+    this.deletePreview.set(null);
+    this.deleteError.set('');
+    this.summary.set('');
+    this.deleteDialog().open();
+    try { this.deletePreview.set(await this.api.previewDelete('schools', ids)); }
+    catch { this.deleteError.set('تعذر حساب ما سيُحذف. أعد المحاولة.'); }
+    finally { this.deleteLoading.set(false); }
+  }
+
+  async confirmDelete() {
+    if (this.deleteBusy()) return;
+    this.deleteBusy.set(true);
+    this.deleteError.set('');
+    try {
+      const { deleted } = await this.api.bulkDelete('schools', this.pendingDeleteIds);
+      this.deleteDialog().close();
+      this.selected.set(new Set());
+      this.summary.set(`تم حذف ${deleted.schools} مدرسة، ${deleted.projects} مشروع، ${deleted.votes} صوت`);
+      await this.load();
+    } catch { this.deleteError.set('تعذر تنفيذ الحذف.'); }
+    finally { this.deleteBusy.set(false); }
   }
 }
