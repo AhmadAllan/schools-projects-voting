@@ -1,13 +1,14 @@
-import { Component, DestroyRef, ElementRef, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService } from '../core/api.service';
 import { Ballot } from '../core/models';
 import { VoterStore } from '../voter/voter-store.service';
 import { BallotCardsComponent } from '../voter/ballot-cards.component';
 import { VoterNameFormComponent } from '../voter/voter-name-form.component';
+import { BallotReviewComponent, parseSubmitError, SubmitError, toReviewItems } from '../voter/ballot-review.component';
 import { KioskResetService } from './kiosk-reset.service';
 import { KioskInactivityService } from './kiosk-inactivity.service';
-@Component({ imports: [BallotCardsComponent, VoterNameFormComponent], template: `
+@Component({ imports: [BallotCardsComponent, VoterNameFormComponent, BallotReviewComponent], template: `
 <main class="kiosk" (pointerdown)="activity()" (keydown)="activity()">
   @if (step()===0){<button class="welcome" (click)="step.set(1)">ابدأ التصويت</button>}
   @else if (step()===1){<app-voter-name-form [initial]="store.name()" (nameChange)="store.name.set($event)" (continueWith)="step.set(2)" />}
@@ -19,7 +20,9 @@ import { KioskInactivityService } from './kiosk-inactivity.service';
       (retry)="loadBallot()" />
     <button class="primary sticky" [disabled]="store.selections().length === 0" (click)="step.set(3)">إنهاء التصويت</button>
   </section>}
-  @else if (step()===3){<section><h1>راجع اختياراتك</h1><p>بعد الإرسال لا يمكن تعديل الأصوات</p><button [disabled]="store.submitting()" (click)="submit()">تأكيد وإرسال</button></section>}
+  @else if (step()===3){<app-ballot-review
+    [items]="reviewItems()" [submitting]="store.submitting()" [submitError]="submitError()"
+    (confirm)="submit()" (confirmDuplicate)="submit(true)" />}
   @else {<section><h1>شكراً لمشاركتك!</h1><p>سيتم الانتقال للمصوّت التالي خلال 5 ثوانٍ</p><button (click)="reset.reset()">المصوّت التالي</button></section>}
   <button class="reset" (click)="requestReset()">ابدأ من جديد</button>
   <button type="button" class="admin-exit" (click)="requestAdminExit()">العودة إلى لوحة الإدارة</button>
@@ -38,6 +41,8 @@ export class KioskPlaceholderComponent {
   readonly store=inject(VoterStore); readonly reset=inject(KioskResetService); readonly inactivity=inject(KioskInactivityService);
   readonly step=this.store.step; readonly ballot=signal<Ballot|null>(null);
   readonly ballotLoading=signal(true); readonly ballotError=signal('');
+  readonly submitError=signal<SubmitError|null>(null);
+  readonly reviewItems=computed(()=>toReviewItems(this.ballot(),this.store.selections()));
   readonly resetDialog=viewChild.required<ElementRef<HTMLDialogElement>>('resetDialog');
   private api=inject(ApiService); private router=inject(Router); private thanksTimer?: ReturnType<typeof setTimeout>; private confirmAction: (() => void) | null=null;
   constructor(){
@@ -79,5 +84,14 @@ export class KioskPlaceholderComponent {
     const action=this.confirmAction; this.confirmAction=null;
     if (confirmed) action?.();
   }
-  async submit(){ this.store.submitting.set(true); try { await this.api.submitKioskVote({requestId:this.store.requestId(),name:this.store.name(),selections:this.store.selections(),confirmDuplicate:this.store.duplicateWarning()}); this.step.set(4); this.thanksTimer=setTimeout(()=>this.reset.reset(),5000); } catch { this.store.submitting.set(false); } }
+  async submit(confirmedDuplicate=false){
+    if (confirmedDuplicate) this.store.duplicateWarning.set(true);
+    this.store.submitting.set(true); this.submitError.set(null);
+    try {
+      await this.api.submitKioskVote({requestId:this.store.requestId(),name:this.store.name(),selections:this.store.selections(),confirmDuplicate:this.store.duplicateWarning()});
+      this.step.set(4); this.thanksTimer=setTimeout(()=>this.reset.reset(),5000);
+    } catch (e) {
+      this.submitError.set(parseSubmitError(e)); this.store.submitting.set(false);
+    }
+  }
 }

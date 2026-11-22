@@ -87,4 +87,37 @@ describe('الشاشة الرئيسية بتبويبين', () => {
     await drain(); await fixture.whenStable();
     expect((fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('input')!.value).toBe('سارة');
   });
+
+  it('الاسم المكرر يعرض التحذير والمتابعة رغم ذلك ترسل confirmDuplicate', async () => {
+    const fixture = TestBed.createComponent(HomeShellComponent);
+    await fixture.whenStable();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/public/ballot').flush(BALLOT);
+    await drain(); await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    el.querySelector<HTMLButtonElement>('.project-card')!.click();
+    await fixture.whenStable();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'متابعة')!.click();
+    await fixture.whenStable();
+    const inputs = Array.from(el.querySelectorAll('input'));
+    ['محمد', 'أحمد', 'خالد', 'العبدالله'].forEach((value, index) => {
+      inputs[index]!.value = value;
+      inputs[index]!.dispatchEvent(new Event('input'));
+    });
+    await fixture.whenStable();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'متابعة')!.click();
+    await fixture.whenStable();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('تأكيد وإرسال'))!.click();
+    const first = http.expectOne('/api/votes');
+    expect(first.request.body.confirmDuplicate).toBeFalsy();
+    first.flush({ error: 'DUPLICATE_NAME', message: 'هذا الاسم سبق أن صوّت.' }, { status: 409, statusText: 'Conflict' });
+    await drain(); await drain(); await fixture.whenStable();
+    expect(el.querySelector('.submit-error')?.textContent).toContain('هذا الاسم سبق أن صوّت.');
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('متابعة رغم تطابق الاسم'))!.click();
+    const second = http.expectOne('/api/votes');
+    expect(second.request.body.confirmDuplicate).toBe(true);
+    second.flush({ error: 'OK', message: 'تم' });
+    await drain(); await drain(); await fixture.whenStable();
+    expect(el.textContent).toContain('شكراً لمشاركتك');
+  });
 });
