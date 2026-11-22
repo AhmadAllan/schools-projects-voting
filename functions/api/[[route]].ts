@@ -6,7 +6,7 @@ import { VoteRequest } from './types';
 import { getPublicBallot, publicResultsGate, withCacheHeaders } from './public';
 import { normalizeProjectPatch, normalizeSectionPatch, validateSection, validateSchoolName, validateImageUpload } from './admin-content';
 import { csvWithBom } from './admin-results';
-import { displayImageUrl } from './db';
+import { displayImageUrl, imageResponseBody } from './db';
 
 interface Bindings { DB: D1Database; ADMIN_PASSWORD: string; SESSION_SECRET: string }
 const app = new Hono<{ Bindings: Bindings }>();
@@ -118,9 +118,9 @@ async function submitVote(c: any, channel: 'qr' | 'tablet') {
 app.get('/api/images/:id', async (c) => {
   const id = Number(c.req.param('id'));
   if (!Number.isInteger(id)) return json({ error: 'NOT_FOUND', message: 'الصورة غير موجودة' }, 404);
-  const image = await c.env.DB.prepare('SELECT mime,data FROM images WHERE id=?').bind(id).first<{ mime: string; data: ArrayBuffer }>();
+  const image = await c.env.DB.prepare('SELECT mime,data FROM images WHERE id=?').bind(id).first<{ mime: string; data: unknown }>();
   if (!image) return json({ error: 'NOT_FOUND', message: 'الصورة غير موجودة' }, 404);
-  return new Response(image.data, { headers: { 'content-type': image.mime, 'cache-control': 'public, max-age=31536000, immutable' } });
+  return new Response(imageResponseBody(image.data), { headers: { 'content-type': image.mime, 'cache-control': 'public, max-age=31536000, immutable' } });
 });
 
 app.post('/api/votes', (c) => submitVote(c, 'qr'));
