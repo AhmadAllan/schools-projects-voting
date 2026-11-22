@@ -33,6 +33,8 @@ export interface ProjectPatch {
   url?: string | null;
   image_url?: string | null;
   image_id?: number | null;
+  section_id?: number;
+  school_id?: number;
   is_active?: 0 | 1;
 }
 
@@ -66,6 +68,16 @@ export function normalizeProjectPatch(body: Record<string, unknown>): { valid: b
       if (!Number.isInteger(imageId) || imageId <= 0) return { valid: false, value: {} };
       patch.image_id = imageId;
     }
+  }
+  if (body.section_id !== undefined) {
+    const sectionId = Number(body.section_id);
+    if (!Number.isInteger(sectionId) || sectionId <= 0) return { valid: false, value: {} };
+    patch.section_id = sectionId;
+  }
+  if (body.school_id !== undefined) {
+    const schoolId = Number(body.school_id);
+    if (!Number.isInteger(schoolId) || schoolId <= 0) return { valid: false, value: {} };
+    patch.school_id = schoolId;
   }
   if (body.is_active !== undefined) patch.is_active = body.is_active ? 1 : 0;
   return { valid: true, value: patch };

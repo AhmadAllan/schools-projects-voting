@@ -170,6 +170,14 @@ app.put('/api/admin/projects/:id', async (c) => {
   const body = await c.req.json<Record<string, unknown>>().catch(() => ({}));
   const patch = normalizeProjectPatch(body ?? {});
   if (!Number.isInteger(id) || !patch.valid || !Object.keys(patch.value).length) return json({error:'VALIDATION_ERROR',message:'بيانات المشروع غير صالحة'},422);
+  if (patch.value.section_id !== undefined) {
+    const section = await c.env.DB.prepare('SELECT id FROM sections WHERE id=?').bind(patch.value.section_id).first();
+    if (!section) return json({error:'VALIDATION_ERROR',message:'القسم أو المدرسة غير موجودة'},422);
+  }
+  if (patch.value.school_id !== undefined) {
+    const school = await c.env.DB.prepare('SELECT id FROM schools WHERE id=?').bind(patch.value.school_id).first();
+    if (!school) return json({error:'VALIDATION_ERROR',message:'القسم أو المدرسة غير موجودة'},422);
+  }
   const entries = Object.entries(patch.value);
   const sets = entries.map(([key]) => `${key}=?`).join(', ');
   await c.env.DB.prepare(`UPDATE projects SET ${sets} WHERE id=?`).bind(...entries.map(([,value]) => value), id).run();

@@ -32,4 +32,14 @@ describe('إدارة المحتوى', () => {
     });
     expect(normalizeProjectPatch({ image_id: 'x' }).valid).toBe(false);
   });
+
+  it('يقبل نقل المشروع بين قسم ومدرسة صحيحين', () => {
+    expect(normalizeProjectPatch({ section_id: 3, school_id: 5 })).toEqual({
+      valid: true,
+      value: { section_id: 3, school_id: 5 },
+    });
+    expect(normalizeProjectPatch({ section_id: 'x' }).valid).toBe(false);
+    expect(normalizeProjectPatch({ school_id: 0 }).valid).toBe(false);
+    expect(normalizeProjectPatch({ school_id: 2.5 }).valid).toBe(false);
+  });
 });
