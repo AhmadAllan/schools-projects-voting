@@ -7,6 +7,7 @@ export class VoterStore {
   readonly requestId = signal(crypto.randomUUID());
   readonly submitting = signal(false);
   readonly duplicateWarning = signal(false);
+  readonly step = signal(0);
   toggleSelection(sectionId: number, projectId: number) {
     const current = this.selections();
     const existing = current.find((selection) => selection.sectionId === sectionId);
@@ -15,6 +16,7 @@ export class VoterStore {
     else if (current.length < 3) this.selections.set([...current, { sectionId, projectId }]);
   }
   reset() {
+    this.step.set(0);
     this.name.set({ first: '', father: '', grandfather: '', family: '' });
     this.selections.set([]); this.requestId.set(crypto.randomUUID()); this.submitting.set(false); this.duplicateWarning.set(false);
   }

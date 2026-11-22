@@ -1,0 +1,154 @@
+Object.defineProperty(window, 'scrollTo', { value: () => undefined, writable: true });
+import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
+import { Router } from '@angular/router';
+import { afterEach, beforeEach, vi } from 'vitest';
+import { KioskPlaceholderComponent } from './kiosk-placeholder.component';
+import { VoterStore } from '../voter/voter-store.service';
+import { KioskInactivityService } from './kiosk-inactivity.service';
+
+const ballot = {
+  sections: [{ id: 1, name: 'الروبوتات', sort_order: 1 }],
+  projects: [{ id: 11, name: 'مشروع القمر', description: 'روبوت استكشاف', section_id: 1, school_name: 'مدرسة النور' }],
+};
+
+describe('شاشة الكشك', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
+      ],
+    });
+  });
+  afterEach(() => {
+    TestBed.inject(KioskInactivityService).clear();
+    vi.useRealTimers();
+  });
+
+  async function kiosk() {
+    const fixture = TestBed.createComponent(KioskPlaceholderComponent);
+    TestBed.inject(HttpTestingController).expectOne('/api/public/ballot').flush(ballot);
+    await fixture.whenStable();
+    return fixture;
+  }
+
+  async function atSelection(fixture: { whenStable: () => Promise<unknown>; nativeElement: HTMLElement; componentInstance: KioskPlaceholderComponent }) {
+    const el = fixture.nativeElement;
+    el.querySelector<HTMLButtonElement>('button.welcome')!.click();
+    await fixture.whenStable();
+    const inputs = Array.from(el.querySelectorAll<HTMLInputElement>('input'));
+    ['محمد', 'أحمد', 'خالد', 'العبدالله'].forEach((value, index) => {
+      inputs[index]!.value = value;
+      inputs[index]!.dispatchEvent(new Event('input'));
+    });
+    await fixture.whenStable();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'متابعة')!.click();
+    await fixture.whenStable();
+  }
+
+  async function atThankYou(fixture: { whenStable: () => Promise<unknown>; nativeElement: HTMLElement; componentInstance: KioskPlaceholderComponent }) {
+    await atSelection(fixture);
+    const el = fixture.nativeElement;
+    el.querySelector<HTMLButtonElement>('.project-card')!.click();
+    await fixture.whenStable();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('إنهاء التصويت'))!.click();
+    await fixture.whenStable();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('تأكيد وإرسال'))!.click();
+    TestBed.inject(HttpTestingController).expectOne('/api/kiosk/votes').flush({ error: 'OK', message: 'تم' });
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    await fixture.whenStable();
+  }
+
+  it('بعد الاسم تظهر شاشة اختيار المشاريع لا المراجعة', async () => {
+    const fixture = await kiosk();
+    await atSelection(fixture);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.project-card')).toBeTruthy();
+    expect(el.textContent).toContain('مشروع القمر');
+    expect(el.textContent).not.toContain('راجع اختياراتك');
+  });
+
+  it('زر إنهاء التصويت ينقل إلى المراجعة بعد اختيار مشروع', async () => {
+    const fixture = await kiosk();
+    await atSelection(fixture);
+    const el = fixture.nativeElement as HTMLElement;
+    el.querySelector<HTMLButtonElement>('.project-card')!.click();
+    await fixture.whenStable();
+    const finish = Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('إنهاء التصويت'))!;
+    expect(finish.disabled).toBe(false);
+    finish.click();
+    await fixture.whenStable();
+    expect(el.textContent).toContain('راجع اختياراتك');
+  });
+
+  it('ابدأ من جديد أثناء التصويت يطلب تأكيدًا ولا يعيد الضبط قبل الموافقة', async () => {
+    const fixture = await kiosk();
+    await atSelection(fixture);
+    const el = fixture.nativeElement as HTMLElement;
+    el.querySelector<HTMLButtonElement>('.project-card')!.click();
+    await fixture.whenStable();
+    const store = TestBed.inject(VoterStore);
+    el.querySelector<HTMLButtonElement>('button.reset')!.click();
+    await fixture.whenStable();
+    const dialog = el.querySelector<HTMLDialogElement>('dialog');
+    expect(dialog?.open).toBe(true);
+    expect(store.selections().length).toBe(1);
+    dialog!.returnValue = 'cancel';
+    fixture.componentInstance.onResetDialogClose();
+    await fixture.whenStable();
+    expect(dialog!.open).toBe(false);
+    expect(store.selections().length).toBe(1);
+    el.querySelector<HTMLButtonElement>('button.reset')!.click();
+    await fixture.whenStable();
+    el.querySelector<HTMLDialogElement>('dialog')!.returnValue = 'confirm';
+    fixture.componentInstance.onResetDialogClose();
+    await fixture.whenStable();
+    expect(store.selections().length).toBe(0);
+    expect(el.querySelector('button.welcome')).toBeTruthy();
+  });
+
+  it('ابدأ من جديد في شاشة الشكر يعيد الضبط فورًا بدون تحذير', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fixture = await kiosk();
+    await atThankYou(fixture);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).toContain('شكراً لمشاركتك');
+    el.querySelector<HTMLButtonElement>('button.reset')!.click();
+    await fixture.whenStable();
+    expect(el.querySelector('dialog')?.open).toBeFalsy();
+    expect(el.querySelector('button.welcome')).toBeTruthy();
+  });
+
+  it('تعود شاشة الشكر تلقائيًا إلى البداية بعد ٥ ثوانٍ', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fixture = await kiosk();
+    await atThankYou(fixture);
+    await vi.advanceTimersByTimeAsync(5000);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('button.welcome')).toBeTruthy();
+  });
+
+  it('زر المصوّت التالي يلغي مؤقت الخمس ثوانٍ فلا يُمسح اسم المصوّت الجديد', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fixture = await kiosk();
+    await atThankYou(fixture);
+    const el = fixture.nativeElement as HTMLElement;
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('المصوّت التالي'))!.click();
+    await fixture.whenStable();
+    el.querySelector<HTMLButtonElement>('button.welcome')!.click();
+    await fixture.whenStable();
+    const nameInput = el.querySelector<HTMLInputElement>('input')!;
+    nameInput.value = 'سارة';
+    nameInput.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    await vi.advanceTimersByTimeAsync(6000);
+    await fixture.whenStable();
+    expect(el.querySelector<HTMLInputElement>('input')!.value).toBe('سارة');
+  });
+});

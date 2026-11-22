@@ -16,4 +16,10 @@ describe('حافظة الناخب', () => {
     store.reset();
     expect(store.requestId()).not.toBe(first);
   });
+  it('يعيد خطوة التصويت إلى البداية عند إعادة الضبط', () => {
+    const store = new VoterStore();
+    store.step.set(3);
+    store.reset();
+    expect(store.step()).toBe(0);
+  });
 });
