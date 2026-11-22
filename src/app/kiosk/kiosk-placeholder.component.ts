@@ -1,4 +1,4 @@
-import { Component, ElementRef, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, effect, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from '../core/api.service';
@@ -47,6 +47,11 @@ export class KioskPlaceholderComponent {
   constructor(){
     this.inactivity.start(()=>this.reset.reset());
     effect(()=>{ if (this.step()===0) clearTimeout(this.thanksTimer); });
+    inject(DestroyRef).onDestroy(()=>{
+      this.inactivity.clear();
+      clearTimeout(this.thanksTimer);
+      this.confirmAction=null;
+    });
     void this.api.getBallot().then((ballot)=>this.ballot.set(ballot));
   }
   activity(){ this.inactivity.touch(()=>this.reset.reset()); }

@@ -24,4 +24,19 @@ describe('جلسة الإدارة', () => {
     await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
     expect(service.isAdmin()).toBe(false);
   });
+
+  it('refresh يعيد الفحص بعد تسجيل الدخول لاحقًا', async () => {
+    const service = TestBed.inject(AdminSessionService);
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/admin/me').flush(
+      { error: 'UNAUTHORIZED', message: 'يجب تسجيل الدخول' },
+      { status: 401, statusText: 'Unauthorized' },
+    );
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(service.isAdmin()).toBe(false);
+    void service.refresh();
+    http.expectOne('/api/admin/me').flush({ authenticated: true });
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(service.isAdmin()).toBe(true);
+  });
 });

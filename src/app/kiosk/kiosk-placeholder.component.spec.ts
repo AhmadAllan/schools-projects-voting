@@ -167,6 +167,18 @@ describe('شاشة الكشك', () => {
     expect(el.querySelector<HTMLDialogElement>('dialog')!.open).toBe(false);
   });
 
+  it('مؤقت الخمول لا يعيد المدير إلى الكشك بعد مغادرته', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fixture = await kiosk();
+    const el = fixture.nativeElement as HTMLElement;
+    el.querySelector<HTMLButtonElement>('.admin-exit')!.click();
+    await fixture.whenStable();
+    expect(navigate).toHaveBeenCalledWith(['/admin']);
+    fixture.destroy();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(navigate).not.toHaveBeenCalledWith(['/kiosk']);
+  });
+
   it('زر المصوّت التالي يلغي مؤقت الخمس ثوانٍ فلا يُمسح اسم المصوّت الجديد', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const fixture = await kiosk();

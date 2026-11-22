@@ -6,7 +6,9 @@ export class AdminSessionService {
   private api = inject(ApiService);
   readonly isAdmin = signal(false);
 
-  constructor() {
+  constructor() { this.refresh(); }
+
+  refresh() {
     void this.api.getAdminMe().then(() => this.isAdmin.set(true)).catch(() => this.isAdmin.set(false));
   }
 }

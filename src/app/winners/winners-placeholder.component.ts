@@ -106,6 +106,7 @@ export class WinnersPlaceholderComponent {
   async load() {
     this.loading.set(true);
     this.error.set('');
+    if (!this.embedded()) this.admin.refresh();
     try {
       this.results.set(this.embedded() ? await this.api.getPublicResults() : await this.loadStandalone());
     } catch {

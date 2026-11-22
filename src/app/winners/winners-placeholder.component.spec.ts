@@ -38,7 +38,8 @@ describe('شاشة الفائزين', () => {
   async function standalone() {
     const fixture = TestBed.createComponent(WinnersPlaceholderComponent);
     await fixture.whenStable();
-    TestBed.inject(HttpTestingController).expectOne('/api/admin/me').flush(UNAUTHORIZED, { status: 401, statusText: 'Unauthorized' });
+    TestBed.inject(HttpTestingController).match('/api/admin/me')
+      .forEach((request) => request.flush(UNAUTHORIZED, { status: 401, statusText: 'Unauthorized' }));
     await drain();
     return fixture;
   }
@@ -113,7 +114,7 @@ describe('شاشة الفائزين', () => {
     const fixture = TestBed.createComponent(WinnersPlaceholderComponent);
     await fixture.whenStable();
     const http = TestBed.inject(HttpTestingController);
-    http.expectOne('/api/admin/me').flush({ authenticated: true });
+    http.match('/api/admin/me').forEach((request) => request.flush({ authenticated: true }));
     await drain();
     http.expectOne('/api/admin/results').flush(results('digital', [9, 7, 5]));
     await drain(); await fixture.whenStable();
@@ -122,6 +123,22 @@ describe('شاشة الفائزين', () => {
     button!.click();
     await fixture.whenStable();
     expect(navigate).toHaveBeenCalledWith(['/admin']);
+  });
+
+  it('تحديث الجلسة عند فتح الشاشة يُظهر زر العودة بعد تسجيل دخول لاحق', async () => {
+    const first = await standalone();
+    TestBed.inject(HttpTestingController).match('/api/admin/results')
+      .forEach((request) => request.flush(UNAUTHORIZED, { status: 401, statusText: 'Unauthorized' }));
+    await drain();
+    first.destroy();
+    const fixture = TestBed.createComponent(WinnersPlaceholderComponent);
+    await fixture.whenStable();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/admin/results').flush(results('digital', [9, 7, 5]));
+    await drain();
+    http.match('/api/admin/me').forEach((request) => request.flush({ authenticated: true }));
+    await drain(); await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).querySelector('button.admin-return')).not.toBeNull();
   });
 
   it('الوضع المدمج يستدعي النتائج العامة فقط', async () => {
