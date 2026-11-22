@@ -27,7 +27,7 @@ const SOURCE_LABELS: Record<ResultSource, string> = {
     @if (saved()) { <p class="admin-ok">تم التحديث.</p> }
 
     <div class="actions">
-      <button class="btn {{ published() ? '' : 'primary' }}" (click)="togglePublish()">
+      <button class="btn" [class.primary]="!published()" (click)="togglePublish()">
         {{ published() ? 'إلغاء نشر النتائج' : 'نشر النتائج للعامة' }}
       </button>
       <a class="btn" href="/api/admin/export/results.csv">تصدير النتائج CSV</a>

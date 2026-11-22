@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ApiService } from '../core/api.service';
 import { Ballot } from '../core/models';
 import { VoterStore } from './voter-store.service';
@@ -9,6 +9,7 @@ import { BallotReviewComponent, parseSubmitError, SubmitError, toReviewItems } f
 @Component({
   selector: 'app-voter-shell',
   imports: [BallotCardsComponent, VoterNameFormComponent, BallotReviewComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
   <main class="voter-shell">
     <header><h1>منافسة المشاريع المدرسية: التصويت</h1></header>

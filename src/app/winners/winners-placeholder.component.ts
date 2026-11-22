@@ -1,4 +1,4 @@
-import { Component, HostListener, afterNextRender, computed, inject, input, signal } from '@angular/core';
+import { Component, afterNextRender, computed, inject, input, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService } from '../core/api.service';
 import { AdminSessionService } from '../core/admin-session.service';
@@ -8,7 +8,7 @@ const RANK_LABELS = ['', 'المركز الأول', 'المركز الثاني',
 
 @Component({
   selector: 'app-winners',
-  standalone: true,
+  host: { '(document:keydown)': 'onKey($event)' },
   template: `
   <main class="winners" [class.embedded]="embedded()">
     @if (loading()) {
@@ -131,7 +131,6 @@ export class WinnersPlaceholderComponent {
 
   toAdmin() { void this.router.navigate(['/admin']); }
 
-  @HostListener('document:keydown', ['$event'])
   onKey(event: KeyboardEvent) {
     if (event.key === 'ArrowLeft') this.next();
     if (event.key === 'ArrowRight') this.prev();

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
@@ -18,8 +18,8 @@ interface VoteRow {
 }
 
 @Component({
-  standalone: true,
   imports: [FormsModule, AdminNavComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
   <main class="admin-shell votes-page">
     <app-admin-nav />
@@ -83,7 +83,7 @@ interface VoteRow {
     </section>
   </main>`,
   styles: [`
-    .votes-page{max-width:1100px;margin:auto;padding:1rem}
+    .votes-page{padding:1rem}
     .hint{max-width:70ch;line-height:1.7;color:var(--text-muted)}
     .source{display:grid;gap:.5rem;max-width:28rem;margin:1.25rem 0}
     .source select{min-height:56px}

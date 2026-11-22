@@ -1,4 +1,4 @@
-import { Component, DestroyRef, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService } from '../core/api.service';
 import { Ballot } from '../core/models';
@@ -8,7 +8,7 @@ import { VoterNameFormComponent } from '../voter/voter-name-form.component';
 import { BallotReviewComponent, parseSubmitError, SubmitError, toReviewItems } from '../voter/ballot-review.component';
 import { KioskResetService } from './kiosk-reset.service';
 import { KioskInactivityService } from './kiosk-inactivity.service';
-@Component({ imports: [BallotCardsComponent, VoterNameFormComponent, BallotReviewComponent], template: `
+@Component({ imports: [BallotCardsComponent, VoterNameFormComponent, BallotReviewComponent], changeDetection: ChangeDetectionStrategy.OnPush, template: `
 <main class="kiosk" (pointerdown)="activity()" (keydown)="activity()">
   @if (step()===0){<button class="welcome" (click)="step.set(1)">ابدأ التصويت</button>}
   @else if (step()===1){<app-voter-name-form [initial]="store.name()" (nameChange)="store.name.set($event)" (continueWith)="step.set(2)" />}
