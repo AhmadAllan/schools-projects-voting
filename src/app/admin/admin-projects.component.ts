@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ApiService } from '../core/api.service';
 import { AdminProject, AdminSchool, AdminSection } from '../core/models';
+import { notBlank } from './admin-helpers';
 import { AdminNavComponent } from './admin-nav.component';
 
 @Component({
@@ -63,6 +64,7 @@ import { AdminNavComponent } from './admin-nav.component';
               </span>
             </td>
             <td>
+              <button class="btn" (click)="edit(project)">تعديل</button>
               <button class="btn" (click)="toggle(project)">{{ project.is_active === 1 ? 'إيقاف' : 'تنشيط' }}</button>
             </td>
           </tr>
@@ -71,7 +73,45 @@ import { AdminNavComponent } from './admin-nav.component';
         }
       </tbody>
     </table>
+
+    <dialog class="admin-dialog" #editDialog aria-labelledby="edit-project-title">
+      <form class="admin-form" [formGroup]="editForm" method="dialog" (submit)="saveEdit($event)">
+        <h2 id="edit-project-title">تعديل المشروع</h2>
+        <label>اسم المشروع <input formControlName="name" lang="ar" autofocus required></label>
+        <label>الوصف <textarea formControlName="description" lang="ar" required></textarea></label>
+        <label>القسم
+          <select formControlName="sectionId" required>
+            <option [ngValue]="null">اختر القسم</option>
+            @for (section of sections(); track section.id) {
+              <option [ngValue]="section.id">{{ section.name }}</option>
+            }
+          </select>
+        </label>
+        <label>المدرسة
+          <select formControlName="schoolId" required>
+            <option [ngValue]="null">اختر المدرسة</option>
+            @for (school of schools(); track school.id) {
+              <option [ngValue]="school.id">{{ school.name }}</option>
+            }
+          </select>
+        </label>
+        <label>رابط المشروع (اختياري) <input formControlName="url" type="url" placeholder="https://"></label>
+        <label>رابط صورة (اختياري) <input formControlName="imageUrl" type="url" placeholder="https://"></label>
+        <label>أو ارفع صورة جديدة (حتى 300 كيلوبايت)
+          <input type="file" accept="image/png,image/jpeg,image/webp" (change)="pickEditFile($event)">
+        </label>
+        @if (editFile()) { <p class="admin-ok">تم اختيار: {{ editFile()!.name }}</p> }
+        <div class="dialog-actions">
+          <button type="button" class="btn" (click)="closeEdit()">إلغاء</button>
+          <button type="submit" class="btn primary" [disabled]="editForm.invalid || editBusy()">
+            {{ editBusy() ? 'جارٍ الحفظ…' : 'حفظ التعديلات' }}
+          </button>
+        </div>
+      </form>
+    </dialog>
   </main>`,
+  styles: `dialog label { display: grid; gap: .4rem; margin: .75rem 0; }
+    .dialog-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1rem; }`,
 })
 export class AdminProjectsComponent {
   private api = inject(ApiService);
@@ -83,7 +123,20 @@ export class AdminProjectsComponent {
   readonly busy = signal(false);
   readonly file = signal<File | null>(null);
   readonly form = this.fb.group({
-    name: ['', [Validators.required, Validators.maxLength(200)]],
+    name: ['', [Validators.required, Validators.maxLength(200), notBlank]],
+    description: ['', [Validators.required, Validators.maxLength(2000)]],
+    sectionId: this.fb.control<number | null>(null, [Validators.required]),
+    schoolId: this.fb.control<number | null>(null, [Validators.required]),
+    url: [''],
+    imageUrl: [''],
+  });
+
+  readonly editDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editDialog');
+  readonly editing = signal<AdminProject | null>(null);
+  readonly editBusy = signal(false);
+  readonly editFile = signal<File | null>(null);
+  readonly editForm = this.fb.group({
+    name: ['', [Validators.required, Validators.maxLength(200), notBlank]],
     description: ['', [Validators.required, Validators.maxLength(2000)]],
     sectionId: this.fb.control<number | null>(null, [Validators.required]),
     schoolId: this.fb.control<number | null>(null, [Validators.required]),
@@ -108,6 +161,11 @@ export class AdminProjectsComponent {
   pickFile(event: Event) {
     const input = event.target as HTMLInputElement;
     this.file.set(input.files?.[0] ?? null);
+  }
+
+  pickEditFile(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.editFile.set(input.files?.[0] ?? null);
   }
 
   async add() {
@@ -141,5 +199,46 @@ export class AdminProjectsComponent {
       await this.api.updateProject(project.id, { is_active: project.is_active === 1 ? 0 : 1 });
       await this.load();
     } catch { this.error.set('تعذر تحديث حالة المشروع.'); }
+  }
+
+  edit(project: AdminProject) {
+    this.editing.set(project);
+    this.editFile.set(null);
+    this.editForm.patchValue({
+      name: project.name,
+      description: project.description,
+      sectionId: project.section_id,
+      schoolId: project.school_id,
+      url: project.url ?? '',
+      imageUrl: project.image_url ?? '',
+    });
+    this.editDialog().nativeElement.showModal();
+  }
+
+  closeEdit() { this.editDialog().nativeElement.close(); }
+
+  async saveEdit(event: Event) {
+    event.preventDefault();
+    if (this.editForm.invalid || !this.editing() || this.editBusy()) return;
+    this.editBusy.set(true);
+    try {
+      const value = this.editForm.getRawValue();
+      const patch: Parameters<ApiService['updateProject']>[1] = {
+        name: value.name,
+        description: value.description,
+        section_id: value.sectionId!,
+        school_id: value.schoolId!,
+        url: value.url || '',
+        image_url: value.imageUrl || '',
+      };
+      if (this.editFile()) {
+        const uploaded = await this.api.uploadImage(this.editFile()!);
+        patch.image_id = uploaded.id;
+      }
+      await this.api.updateProject(this.editing()!.id, patch);
+      this.closeEdit();
+      await this.load();
+    } catch { this.error.set('تعذر تحديث المشروع. تحقق من البيانات وحجم الصورة.'); }
+    finally { this.editBusy.set(false); }
   }
 }
