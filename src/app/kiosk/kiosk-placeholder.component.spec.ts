@@ -98,7 +98,7 @@ describe('شاشة الكشك', () => {
     const store = TestBed.inject(VoterStore);
     el.querySelector<HTMLButtonElement>('button.reset')!.click();
     await fixture.whenStable();
-    const dialog = el.querySelector<HTMLDialogElement>('dialog');
+    const dialog = el.querySelector<HTMLDialogElement>('dialog.reset-dialog');
     expect(dialog?.open).toBe(true);
     expect(store.selections().length).toBe(1);
     dialog!.returnValue = 'cancel';
@@ -108,7 +108,7 @@ describe('شاشة الكشك', () => {
     expect(store.selections().length).toBe(1);
     el.querySelector<HTMLButtonElement>('button.reset')!.click();
     await fixture.whenStable();
-    el.querySelector<HTMLDialogElement>('dialog')!.returnValue = 'confirm';
+    el.querySelector<HTMLDialogElement>('dialog.reset-dialog')!.returnValue = 'confirm';
     fixture.componentInstance.onResetDialogClose();
     await fixture.whenStable();
     expect(store.selections().length).toBe(0);
@@ -123,7 +123,7 @@ describe('شاشة الكشك', () => {
     expect(el.textContent).toContain('شكراً لمشاركتك');
     el.querySelector<HTMLButtonElement>('button.reset')!.click();
     await fixture.whenStable();
-    expect(el.querySelector('dialog')?.open).toBeFalsy();
+    expect(el.querySelector<HTMLDialogElement>('dialog.reset-dialog')?.open).toBeFalsy();
     expect(el.querySelector('button.welcome')).toBeTruthy();
   });
 
@@ -146,7 +146,7 @@ describe('شاشة الكشك', () => {
     const store = TestBed.inject(VoterStore);
     el.querySelector<HTMLButtonElement>('.admin-exit')!.click();
     await fixture.whenStable();
-    const dialog = el.querySelector<HTMLDialogElement>('dialog')!;
+    const dialog = el.querySelector<HTMLDialogElement>('dialog.reset-dialog')!;
     expect(dialog.open).toBe(true);
     expect(store.selections().length).toBe(1);
     expect(navigate).not.toHaveBeenCalled();
@@ -164,7 +164,7 @@ describe('شاشة الكشك', () => {
     el.querySelector<HTMLButtonElement>('.admin-exit')!.click();
     await fixture.whenStable();
     expect(navigate).toHaveBeenCalledWith(['/admin']);
-    expect(el.querySelector<HTMLDialogElement>('dialog')!.open).toBe(false);
+    expect(el.querySelector<HTMLDialogElement>('dialog.reset-dialog')!.open).toBe(false);
   });
 
   it('مؤقت الخمول لا يعيد المدير إلى الكشك بعد مغادرته', async () => {
@@ -195,5 +195,20 @@ describe('شاشة الكشك', () => {
     await vi.advanceTimersByTimeAsync(6000);
     await fixture.whenStable();
     expect(el.querySelector<HTMLInputElement>('input')!.value).toBe('سارة');
+  });
+
+  it('تحذير الخمول يظهر كنافذة حوارية وينغلق عند تأكيد البقاء', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const fixture = await kiosk();
+    await vi.advanceTimersByTimeAsync(50_000);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    const dialog = el.querySelector<HTMLDialogElement>('dialog.inactivity-dialog')!;
+    expect(dialog).toBeTruthy();
+    expect(dialog.open).toBe(true);
+    expect(el.textContent).toContain('هل ما زلت هنا؟');
+    Array.from(dialog.querySelectorAll('button')).find((button) => button.textContent?.includes('نعم، أنا هنا'))!.click();
+    await fixture.whenStable();
+    expect(dialog.open).toBe(false);
   });
 });
