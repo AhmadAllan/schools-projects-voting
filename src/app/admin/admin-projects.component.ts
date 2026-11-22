@@ -1,18 +1,27 @@
 import { ChangeDetectionStrategy, Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ApiService } from '../core/api.service';
-import { AdminProject, AdminSchool, AdminSection } from '../core/models';
+import { AdminProject, AdminSchool, AdminSection, DeletePreview } from '../core/models';
 import { notBlank } from './admin-helpers';
 import { AdminNavComponent } from './admin-nav.component';
+import { BulkDeleteDialogComponent } from './bulk-delete-dialog.component';
 
 @Component({
-  imports: [ReactiveFormsModule, AdminNavComponent],
+  imports: [ReactiveFormsModule, AdminNavComponent, BulkDeleteDialogComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
   <main class="admin-shell">
     <app-admin-nav />
     <h1>المشاريع</h1>
     @if (error()) { <p class="admin-error">{{ error() }}</p> }
+    @if (summary()) { <p class="admin-ok" role="status">{{ summary() }}</p> }
+
+    @if (selected().size) {
+      <div class="bulk-bar">
+        <span>المحدد: {{ selected().size }}</span>
+        <button type="button" class="btn danger" (click)="requestDelete([...selected()])">حذف المحدد ({{ selected().size }})</button>
+      </div>
+    }
 
     <form class="admin-form" [formGroup]="form" (ngSubmit)="add()">
       <h2>إضافة مشروع</h2>
@@ -44,10 +53,11 @@ import { AdminNavComponent } from './admin-nav.component';
     </form>
 
     <table class="admin-table">
-      <thead><tr><th>القسم</th><th>المشروع</th><th>المدرسة</th><th>الصورة</th><th>الحالة</th><th></th></tr></thead>
+      <thead><tr><th class="check-col"><input type="checkbox" [checked]="allSelected()" (change)="toggleSelectAll()" aria-label="تحديد كل المشاريع"></th><th>القسم</th><th>المشروع</th><th>المدرسة</th><th>الصورة</th><th>الحالة</th><th></th></tr></thead>
       <tbody>
         @for (project of projects(); track project.id) {
           <tr>
+            <td class="check-col"><input type="checkbox" [checked]="selected().has(project.id)" (change)="toggleSelect(project.id)" [attr.aria-label]="'تحديد ' + project.name"></td>
             <td>{{ project.section_name }}</td>
             <td>
               {{ project.name }}
@@ -66,10 +76,11 @@ import { AdminNavComponent } from './admin-nav.component';
             <td>
               <button class="btn" (click)="edit(project)">تعديل</button>
               <button class="btn" (click)="toggle(project)">{{ project.is_active === 1 ? 'إيقاف' : 'تنشيط' }}</button>
+              <button class="btn danger" (click)="requestDelete([project.id])">حذف</button>
             </td>
           </tr>
         } @empty {
-          <tr><td colspan="6">لا توجد مشاريع بعد.</td></tr>
+          <tr><td colspan="7">لا توجد مشاريع بعد.</td></tr>
         }
       </tbody>
     </table>
@@ -110,9 +121,15 @@ import { AdminNavComponent } from './admin-nav.component';
         </div>
       </form>
     </dialog>
+
+    <app-bulk-delete-dialog #deleteDialog title="تأكيد حذف المشاريع"
+      [loading]="deleteLoading()" [preview]="deletePreview()" [busy]="deleteBusy()" [error]="deleteError()"
+      (confirmed)="confirmDelete()" />
   </main>`,
   styles: `dialog label { display: grid; gap: .4rem; margin: .75rem 0; }
-    .dialog-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1rem; }`,
+    .dialog-actions { display: flex; gap: .75rem; justify-content: flex-end; margin-top: 1rem; }
+    .bulk-bar { display: flex; align-items: center; gap: .75rem; margin: .75rem 0; }
+    .check-col { width: 2.5rem; text-align: center; }`,
 })
 export class AdminProjectsComponent {
   private api = inject(ApiService);
@@ -133,6 +150,14 @@ export class AdminProjectsComponent {
   });
 
   readonly editDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editDialog');
+  readonly deleteDialog = viewChild.required<BulkDeleteDialogComponent>('deleteDialog');
+  readonly selected = signal<Set<number>>(new Set());
+  readonly deleteLoading = signal(false);
+  readonly deletePreview = signal<DeletePreview | null>(null);
+  readonly deleteBusy = signal(false);
+  readonly deleteError = signal('');
+  readonly summary = signal('');
+  private pendingDeleteIds: number[] = [];
   readonly editing = signal<AdminProject | null>(null);
   readonly editBusy = signal(false);
   readonly editFile = signal<File | null>(null);
@@ -247,5 +272,51 @@ export class AdminProjectsComponent {
       await this.load();
     } catch { this.editError.set('تعذر تحديث المشروع. تحقق من البيانات وحجم الصورة.'); }
     finally { this.editBusy.set(false); }
+  }
+
+  protected allSelected() {
+    const projects = this.projects();
+    return projects.length > 0 && projects.every((project) => this.selected().has(project.id));
+  }
+
+  protected toggleSelect(id: number) {
+    this.selected.update((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  protected toggleSelectAll() {
+    this.selected.update((current) => {
+      if (this.projects().every((project) => current.has(project.id))) return new Set<number>();
+      return new Set(this.projects().map((project) => project.id));
+    });
+  }
+
+  async requestDelete(ids: number[]) {
+    this.pendingDeleteIds = ids;
+    this.deleteLoading.set(true);
+    this.deletePreview.set(null);
+    this.deleteError.set('');
+    this.summary.set('');
+    this.deleteDialog().open();
+    try { this.deletePreview.set(await this.api.previewDelete('projects', ids)); }
+    catch { this.deleteError.set('تعذر حساب ما سيُحذف. أعد المحاولة.'); }
+    finally { this.deleteLoading.set(false); }
+  }
+
+  async confirmDelete() {
+    if (this.deleteBusy()) return;
+    this.deleteBusy.set(true);
+    this.deleteError.set('');
+    try {
+      const { deleted } = await this.api.bulkDelete('projects', this.pendingDeleteIds);
+      this.deleteDialog().close();
+      this.selected.set(new Set());
+      this.summary.set(`تم حذف ${deleted.projects} مشروع، ${deleted.votes} صوت`);
+      await this.load();
+    } catch { this.deleteError.set('تعذر تنفيذ الحذف.'); }
+    finally { this.deleteBusy.set(false); }
   }
 }
