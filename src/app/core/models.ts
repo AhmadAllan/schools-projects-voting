@@ -21,3 +21,6 @@ export interface AdminProject {
 export interface AdminVoter { id: string; full_name: string; channel: 'qr' | 'tablet'; is_duplicate: number; voided: number; void_reason: string | null; created_at: string }
 export type SettingsMap = Record<string, string>;
 export interface AdminVotesResponse { source: ResultSource; projects: Array<AdminProject & { digital_votes: number; final_votes: number }>; winners: Record<number, number | undefined> }
+export type DeleteKind = 'sections' | 'schools' | 'projects';
+export interface DeletePreview { items: Array<{ id: number; name: string }>; projects: Array<{ id: number; name: string; context: string }>; votes: number }
+export interface DeleteResult { sections: number; schools: number; projects: number; votes: number }

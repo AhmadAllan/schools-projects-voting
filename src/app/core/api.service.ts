@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import {
   AdminProject, AdminSchool, AdminSection, AdminVoter, AdminVotesResponse,
-  Ballot, ResultsResponse, ResultSource, SettingsMap, VotingStatus, VoteRequest,
+  Ballot, DeleteKind, DeletePreview, DeleteResult, ResultsResponse, ResultSource, SettingsMap, VotingStatus, VoteRequest,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -35,6 +35,12 @@ export class ApiService {
   }
 
   getProjects() { return firstValueFrom(this.http.get<AdminProject[]>('/api/admin/projects')); }
+  previewDelete(kind: DeleteKind, ids: number[]) {
+    return firstValueFrom(this.http.post<DeletePreview>(`/api/admin/${kind}/delete-preview`, { ids }));
+  }
+  bulkDelete(kind: DeleteKind, ids: number[]) {
+    return firstValueFrom(this.http.post<{ error: string; message: string; deleted: DeleteResult }>(`/api/admin/${kind}/delete-bulk`, { ids }));
+  }
   addProject(body: { name: string; description: string; section_id: number; school_id: number; url?: string; image_url?: string; image_id?: number }) {
     return firstValueFrom(this.http.post<{error:string;message:string}>('/api/admin/projects', body));
   }
