@@ -30,12 +30,15 @@ export class ApiService {
   addSchool(name: string) {
     return firstValueFrom(this.http.post<{error:string;message:string}>('/api/admin/schools', { name }));
   }
+  updateSchool(id: number, name: string) {
+    return firstValueFrom(this.http.put<{error:string;message:string}>(`/api/admin/schools/${id}`, { name }));
+  }
 
   getProjects() { return firstValueFrom(this.http.get<AdminProject[]>('/api/admin/projects')); }
   addProject(body: { name: string; description: string; section_id: number; school_id: number; url?: string; image_url?: string; image_id?: number }) {
     return firstValueFrom(this.http.post<{error:string;message:string}>('/api/admin/projects', body));
   }
-  updateProject(id: number, patch: Partial<Pick<AdminProject, 'name' | 'description' | 'url' | 'image_url' | 'image_id' | 'is_active'>>) {
+  updateProject(id: number, patch: Partial<Pick<AdminProject, 'name' | 'description' | 'url' | 'image_url' | 'image_id' | 'is_active' | 'section_id' | 'school_id'>>) {
     return firstValueFrom(this.http.put<{error:string;message:string}>(`/api/admin/projects/${id}`, patch));
   }
   uploadImage(file: File) {
