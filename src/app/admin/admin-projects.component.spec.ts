@@ -80,4 +80,47 @@ describe('صفحة المشاريع — التعديل', () => {
     expect(fixture.componentInstance.editForm.invalid).toBe(true);
     http.verify();
   });
+
+  it('يرفع الصورة الجديدة ويرسل image_id ويمحو image_url القديمة', async () => {
+    const withUrl = { ...project, image_url: 'https://old.example/i.png' };
+    const { fixture, http } = await setup();
+    fixture.componentInstance.edit(withUrl as any);
+    fixture.componentInstance.editFile.set(new File([new Uint8Array([1])], 'new.png', { type: 'image/png' }));
+    fixture.componentInstance.editForm.setValue({
+      name: 'روبوت متقدم', description: 'وصف جديد', sectionId: 1, schoolId: 2,
+      url: '', imageUrl: 'https://old.example/i.png',
+    });
+    const saving = fixture.componentInstance.saveEdit(new Event('submit'));
+    const upload = http.expectOne({ method: 'POST', url: '/api/admin/images' });
+    upload.flush({ id: 42 });
+    await new Promise((resolve) => setTimeout(resolve));
+    const req = http.expectOne({ method: 'PUT', url: '/api/admin/projects/9' });
+    expect(req.request.body).toMatchObject({ image_id: 42, image_url: '' });
+    req.flush({ error: 'OK', message: 'تم تحديث المشروع' });
+    await new Promise((resolve) => setTimeout(resolve));
+    http.expectOne('/api/admin/projects').flush([project]);
+    http.expectOne('/api/admin/sections').flush(sections);
+    http.expectOne('/api/admin/schools').flush(schools);
+    await saving;
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect((fixture.nativeElement.querySelector('dialog') as HTMLDialogElement).open).toBe(false);
+  });
+
+  it('يعرض خطأ الحفظ داخل النافذة ويبقيها مفتوحة', async () => {
+    const { fixture, http } = await setup();
+    fixture.componentInstance.edit(project as any);
+    fixture.componentInstance.editForm.setValue({
+      name: 'روبوت متقدم', description: 'وصف جديد', sectionId: 1, schoolId: 2, url: '', imageUrl: '',
+    });
+    const saving = fixture.componentInstance.saveEdit(new Event('submit'));
+    const req = http.expectOne({ method: 'PUT', url: '/api/admin/projects/9' });
+    req.flush({ error: 'VALIDATION_ERROR', message: 'بيانات المشروع غير صالحة' }, { status: 422, statusText: 'Unprocessable Entity' });
+    await saving;
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('dialog') as HTMLDialogElement;
+    expect(dialog.open).toBe(true);
+    expect(dialog.querySelector('.admin-error')?.textContent).toContain('تعذر تحديث المشروع');
+  });
 });

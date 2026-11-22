@@ -62,4 +62,19 @@ describe('صفحة المدارس — التعديل', () => {
     expect((fixture.nativeElement.querySelector('dialog') as HTMLDialogElement).open).toBe(false);
     http.verify();
   });
+
+  it('يعرض خطأ الحفظ داخل النافذة ويبقيها مفتوحة', async () => {
+    const { fixture, http } = await setup();
+    fixture.componentInstance.edit(school as any);
+    fixture.componentInstance.editForm.setValue({ name: 'مدرسة النور' });
+    const saving = fixture.componentInstance.saveEdit(new Event('submit'));
+    const req = http.expectOne({ method: 'PUT', url: '/api/admin/schools/2' });
+    req.flush({ error: 'VALIDATION_ERROR', message: 'اسم المدرسة مطلوب' }, { status: 422, statusText: 'Unprocessable Entity' });
+    await saving;
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('dialog') as HTMLDialogElement;
+    expect(dialog.open).toBe(true);
+    expect(dialog.querySelector('.admin-error')?.textContent).toContain('تعذر تحديث المدرسة');
+  });
 });

@@ -59,4 +59,19 @@ describe('صفحة الأقسام — التعديل', () => {
     expect(fixture.componentInstance.editForm.invalid).toBe(true);
     http.verify();
   });
+
+  it('يعرض خطأ الحفظ داخل النافذة ويبقيها مفتوحة', async () => {
+    const { fixture, http } = await setup();
+    fixture.componentInstance.edit(row as any);
+    fixture.componentInstance.editForm.setValue({ name: 'الروبوتات المتقدمة', description: 'وصف جديد', sortOrder: 5 });
+    const saving = fixture.componentInstance.saveEdit(new Event('submit'));
+    const req = http.expectOne({ method: 'PUT', url: '/api/admin/sections/3' });
+    req.flush({ error: 'VALIDATION_ERROR', message: 'بيانات القسم غير صالحة' }, { status: 422, statusText: 'Unprocessable Entity' });
+    await saving;
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector('dialog') as HTMLDialogElement;
+    expect(dialog.open).toBe(true);
+    expect(dialog.querySelector('.admin-error')?.textContent).toContain('تعذر تحديث القسم');
+  });
 });

@@ -38,6 +38,7 @@ import { AdminNavComponent } from './admin-nav.component';
       <form class="admin-form" [formGroup]="editForm" method="dialog" (submit)="saveEdit($event)">
         <h2 id="edit-school-title">تعديل المدرسة</h2>
         <label>اسم المدرسة <input formControlName="name" lang="ar" autofocus required></label>
+        @if (editError()) { <p class="admin-error">{{ editError() }}</p> }
         <div class="dialog-actions">
           <button type="button" class="btn" (click)="closeEdit()">إلغاء</button>
           <button type="submit" class="btn primary" [disabled]="editForm.invalid || editBusy()">حفظ التعديلات</button>
@@ -59,6 +60,7 @@ export class AdminSchoolsComponent {
   readonly editDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editDialog');
   readonly editing = signal<AdminSchool | null>(null);
   readonly editBusy = signal(false);
+  readonly editError = signal('');
   readonly editForm = this.fb.group({ name: ['', [Validators.required, Validators.maxLength(150), notBlank]] });
 
   constructor() { void this.load(); }
@@ -81,6 +83,7 @@ export class AdminSchoolsComponent {
 
   edit(school: AdminSchool) {
     this.editing.set(school);
+    this.editError.set('');
     this.editForm.patchValue({ name: school.name });
     this.editDialog().nativeElement.showModal();
   }
@@ -96,7 +99,7 @@ export class AdminSchoolsComponent {
       await this.api.updateSchool(this.editing()!.id, value.name);
       this.closeEdit();
       await this.load();
-    } catch { this.error.set('تعذر تحديث المدرسة.'); }
+    } catch { this.editError.set('تعذر تحديث المدرسة.'); }
     finally { this.editBusy.set(false); }
   }
 }

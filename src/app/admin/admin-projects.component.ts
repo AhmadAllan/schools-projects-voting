@@ -101,6 +101,7 @@ import { AdminNavComponent } from './admin-nav.component';
           <input type="file" accept="image/png,image/jpeg,image/webp" (change)="pickEditFile($event)">
         </label>
         @if (editFile()) { <p class="admin-ok">تم اختيار: {{ editFile()!.name }}</p> }
+        @if (editError()) { <p class="admin-error">{{ editError() }}</p> }
         <div class="dialog-actions">
           <button type="button" class="btn" (click)="closeEdit()">إلغاء</button>
           <button type="submit" class="btn primary" [disabled]="editForm.invalid || editBusy()">
@@ -135,6 +136,7 @@ export class AdminProjectsComponent {
   readonly editing = signal<AdminProject | null>(null);
   readonly editBusy = signal(false);
   readonly editFile = signal<File | null>(null);
+  readonly editError = signal('');
   readonly editForm = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(200), notBlank]],
     description: ['', [Validators.required, Validators.maxLength(2000)]],
@@ -204,6 +206,7 @@ export class AdminProjectsComponent {
   edit(project: AdminProject) {
     this.editing.set(project);
     this.editFile.set(null);
+    this.editError.set('');
     this.editForm.patchValue({
       name: project.name,
       description: project.description,
@@ -229,7 +232,7 @@ export class AdminProjectsComponent {
         section_id: value.sectionId!,
         school_id: value.schoolId!,
         url: value.url || '',
-        image_url: value.imageUrl || '',
+        image_url: this.editFile() ? '' : value.imageUrl || '',
       };
       if (this.editFile()) {
         const uploaded = await this.api.uploadImage(this.editFile()!);
@@ -238,7 +241,7 @@ export class AdminProjectsComponent {
       await this.api.updateProject(this.editing()!.id, patch);
       this.closeEdit();
       await this.load();
-    } catch { this.error.set('تعذر تحديث المشروع. تحقق من البيانات وحجم الصورة.'); }
+    } catch { this.editError.set('تعذر تحديث المشروع. تحقق من البيانات وحجم الصورة.'); }
     finally { this.editBusy.set(false); }
   }
 }

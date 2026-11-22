@@ -54,6 +54,7 @@ import { AdminNavComponent } from './admin-nav.component';
         <label>اسم القسم <input formControlName="name" lang="ar" autofocus required></label>
         <label>الوصف <textarea formControlName="description" lang="ar"></textarea></label>
         <label>الترتيب <input formControlName="sortOrder" type="number" min="0" step="1"></label>
+        @if (editError()) { <p class="admin-error">{{ editError() }}</p> }
         <div class="dialog-actions">
           <button type="button" class="btn" (click)="closeEdit()">إلغاء</button>
           <button type="submit" class="btn primary" [disabled]="editForm.invalid || editBusy()">حفظ التعديلات</button>
@@ -79,6 +80,7 @@ export class AdminSectionsComponent {
   readonly editDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editDialog');
   readonly editing = signal<AdminSection | null>(null);
   readonly editBusy = signal(false);
+  readonly editError = signal('');
   readonly editForm = this.fb.group({
     name: ['', [Validators.required, Validators.maxLength(100), notBlank]],
     description: [''],
@@ -116,6 +118,7 @@ export class AdminSectionsComponent {
 
   edit(section: AdminSection) {
     this.editing.set(section);
+    this.editError.set('');
     this.editForm.patchValue({ name: section.name, description: section.description ?? '', sortOrder: section.sort_order });
     this.editDialog().nativeElement.showModal();
   }
@@ -131,7 +134,7 @@ export class AdminSectionsComponent {
       await this.api.updateSection(this.editing()!.id, { name: value.name, description: value.description, sort_order: value.sortOrder });
       this.closeEdit();
       await this.load();
-    } catch { this.error.set('تعذر تحديث القسم.'); }
+    } catch { this.editError.set('تعذر تحديث القسم.'); }
     finally { this.editBusy.set(false); }
   }
 }
