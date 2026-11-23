@@ -23,7 +23,7 @@ type SortMode = 'default' | 'name';
     } @else {
       <nav class="filter-tabs" aria-label="تصفية الفئات">
         <button type="button" [class.active]="activeTab() === 0" (click)="activeTab.set(0)">
-          الكل <span class="count">{{ projects().length }}</span>
+          الكل <span class="count">{{ sectionProjects().length }}</span>
         </button>
         @for (section of sections(); track section.id) {
           <button type="button" [class.active]="activeTab() === section.id" (click)="activeTab.set(section.id)">
@@ -110,10 +110,13 @@ export class BallotCardsComponent {
   protected readonly projects = computed(() => this.ballot()?.projects ?? []);
   private readonly sectionById = computed(() => new Map(this.sections().map((section) => [section.id, section])));
 
+  /** مشاريع الأقسام النشطة فقط: مشروع بلا قسم ظاهر لا يُعرض ولا يُحتسب. */
+  protected readonly sectionProjects = computed(() => this.projects().filter((project) => this.sectionById().has(project.section_id)));
+
   protected readonly visibleProjects = computed(() => {
     const tab = this.activeTab();
     const needle = normalizeText(this.query());
-    const list = this.projects().filter((project) =>
+    const list = this.sectionProjects().filter((project) =>
       (tab === 0 || project.section_id === tab)
       && (needle === '' || normalizeText(`${project.name} ${project.school_name} ${project.description}`).includes(needle)));
     return this.sortMode() === 'name'
@@ -121,7 +124,7 @@ export class BallotCardsComponent {
       : list;
   });
 
-  protected countFor(sectionId: number) { return this.projects().filter((project) => project.section_id === sectionId).length; }
+  protected countFor(sectionId: number) { return this.sectionProjects().filter((project) => project.section_id === sectionId).length; }
   protected sectionNameOf(project: BallotProject) { return this.sectionById().get(project.section_id)?.name ?? ''; }
   protected badgeIndexFor(project: BallotProject) { return this.sections().findIndex((section) => section.id === project.section_id); }
   protected isSelected(projectId: number) { return this.selections().some((selection) => selection.projectId === projectId); }

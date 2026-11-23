@@ -68,6 +68,12 @@ describe('شاشة مراجعة الاختيارات', () => {
     expect(removed).toEqual([{ sectionId: 1, projectId: 11 }]);
   });
 
+  it('زر التأكيد معطّل عند إزالة كل الاختيارات', async () => {
+    const el = (await render({ items: [] })).nativeElement as HTMLElement;
+    const confirm = Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent?.includes('تأكيد وإرسال'))!;
+    expect(confirm.disabled).toBe(true);
+  });
+
   it('زر الرجوع والخلفية يرسلان back', async () => {
     const fixture = await render();
     const backs: void[] = [];
@@ -77,5 +83,20 @@ describe('شاشة مراجعة الاختيارات', () => {
     expect(backs.length).toBe(1);
     (el.querySelector('.scrim') as HTMLElement).click();
     expect(backs.length).toBe(2);
+  });
+
+  it('مفتاح Escape يغلق الدرج بزر الرجوع للتعديل', async () => {
+    const fixture = await render();
+    const backs: void[] = [];
+    fixture.componentInstance.back.subscribe(() => backs.push(undefined));
+    const drawer = (fixture.nativeElement as HTMLElement).querySelector('.drawer')!;
+    drawer.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(backs.length).toBe(1);
+  });
+
+  it('زر الرجوع للتعديل يستقبل التركيز عند فتح الدرج', async () => {
+    const el = (await render()).nativeElement as HTMLElement;
+    const close = Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent?.includes('رجوع للتعديل'))!;
+    expect(close.hasAttribute('autofocus')).toBe(true);
   });
 });

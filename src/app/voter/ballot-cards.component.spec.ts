@@ -168,4 +168,14 @@ describe('صفحة الاقتراع', () => {
       { sectionId: 1, projectId: 12 },
     ]);
   });
+
+  it('يتجاهل مشاريع الأقسام غير النشطة ولا تحتسبها في «الكل»', async () => {
+    const ballotWithOrphan: Ballot = {
+      sections: BALLOT.sections,
+      projects: [...BALLOT.projects, { id: 99, name: 'مشروع يتيم', description: 'وصف', section_id: 99, school_name: 'مدرسة مهجورة' }],
+    };
+    const el = (await render({ ballot: ballotWithOrphan })).nativeElement as HTMLElement;
+    expect(cardsByName(el, 'مشروع يتيم').length).toBe(0);
+    expect(tabButtons(el)[0].textContent).toContain('5');
+  });
 });

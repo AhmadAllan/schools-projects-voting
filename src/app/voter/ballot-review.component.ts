@@ -33,10 +33,10 @@ export function toReviewItems(ballot: Ballot | null, selections: Selection[]): R
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="scrim" (click)="back.emit()" aria-hidden="true"></div>
-    <section class="drawer" role="dialog" aria-modal="true" aria-labelledby="review-title">
+    <section class="drawer" role="dialog" aria-modal="true" aria-labelledby="review-title" (keydown.escape)="back.emit()">
       <header class="drawer-head">
         <h2 id="review-title">راجع اختياراتك</h2>
-        <button type="button" class="close" (click)="back.emit()">رجوع للتعديل</button>
+        <button type="button" class="close" autofocus (click)="back.emit()">رجوع للتعديل</button>
       </header>
       <ol class="review-list">
         @for (item of items(); track item.selection.projectId) {
@@ -55,7 +55,7 @@ export function toReviewItems(ballot: Ballot | null, selections: Selection[]): R
           <button type="button" class="btn" (click)="confirmDuplicate.emit()">متابعة رغم تطابق الاسم</button>
         }
       }
-      <button type="button" class="btn primary confirm" [disabled]="submitting()" (click)="confirm.emit()">تأكيد وإرسال</button>
+      <button type="button" class="btn primary confirm" [disabled]="submitting() || !items().length" (click)="confirm.emit()">تأكيد وإرسال</button>
     </section>`,
   styles: `
     .scrim { position: fixed; inset: 0; background: var(--backdrop); z-index: 19; }
