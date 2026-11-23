@@ -32,9 +32,15 @@ import { VoteCounterComponent } from './vote-counter.component';
         (confirm)="submit()" (confirmDuplicate)="submit(true)"
         (back)="step.set(0)"
         (remove)="store.toggleSelection($event.sectionId, $event.projectId)" />
-    } @else { <section><h2>شكراً لمشاركتك!</h2><p>تم تسجيل صوتك</p></section> }
+    } @else {
+      <section class="thanks">
+        <h2>شكراً لمشاركتك!</h2>
+        <p>تم تسجيل صوتك</p>
+        <button type="button" class="btn revote" (click)="store.reset()">تصويت شخص آخر</button>
+      </section>
+    }
   </main>`,
-  styles: [`.voter-shell{display:block;width:100%;justify-items:stretch;max-width:1100px;margin:auto;padding:1rem}.top-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem 1rem}.primary{min-height:56px;padding:.75rem 1.5rem}.sticky{position:sticky;bottom:1rem;width:100%;box-shadow:var(--shadow-md)}label{display:grid;gap:.5rem;margin:1rem 0}input{min-height:56px;padding:.75rem}`]
+  styles: [`.voter-shell{display:block;width:100%;justify-items:stretch;max-width:1100px;margin:auto;padding:1rem}.top-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.5rem 1rem}.primary{min-height:56px;padding:.75rem 1.5rem}.sticky{position:sticky;bottom:1rem;width:100%;box-shadow:var(--shadow-md)}label{display:grid;gap:.5rem;margin:1rem 0}input{min-height:56px;padding:.75rem}.thanks{display:grid;justify-items:center;gap:.75rem;padding:3rem 1rem;text-align:center}.revote{min-height:56px;padding:.75rem 1.5rem}`]
 })
 export class VoterShellComponent {
   readonly store = inject(VoterStore); readonly step = this.store.step; readonly ballot = signal<Ballot|null>(null);

@@ -121,6 +121,38 @@ describe('الشاشة الرئيسية بتبويبين', () => {
     expect(el.textContent).toContain('شكراً لمشاركتك');
   });
 
+  it('زر تصويت شخص آخر يعيد الاقتراع فارغاً بعد الشكر', async () => {
+    const fixture = TestBed.createComponent(HomeShellComponent);
+    await fixture.whenStable();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/public/ballot').flush(BALLOT);
+    await drain(); await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    el.querySelector<HTMLButtonElement>('app-project-card .vote-btn')!.click();
+    await fixture.whenStable();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'مراجعة الأصوات')!.click();
+    await fixture.whenStable();
+    const inputs = Array.from(el.querySelectorAll('input'));
+    ['ليلى', 'سالم', 'راشد', 'العلي'].forEach((value, index) => {
+      inputs[index]!.value = value;
+      inputs[index]!.dispatchEvent(new Event('input'));
+    });
+    await fixture.whenStable();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'متابعة')!.click();
+    await fixture.whenStable();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('تأكيد وإرسال'))!.click();
+    http.expectOne('/api/votes').flush({ error: 'OK', message: 'تم' });
+    await drain(); await drain(); await fixture.whenStable();
+    expect(el.textContent).toContain('شكراً لمشاركتك');
+    const revote = Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'تصويت شخص آخر')!;
+    expect(revote).toBeTruthy();
+    revote.click();
+    await fixture.whenStable();
+    expect(el.querySelector('app-project-card .vote-btn')).toBeTruthy();
+    expect(el.textContent).toContain('الأصوات المستخدمة: 0 من 3');
+    expect(el.querySelector('app-voter-name-form')).toBeNull();
+  });
+
   it('التبويبات تنفذ نمط ARIA tabs مع لوحة مربوطة', async () => {
     const fixture = TestBed.createComponent(HomeShellComponent);
     await fixture.whenStable();

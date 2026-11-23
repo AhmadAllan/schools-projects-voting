@@ -401,7 +401,7 @@ Scan QR → Home (browse sections & cards, read-only, sticky "ابدأ التص�
 
 - The **home page is split into sections** (Best Website, Best App, and so on), each with its project cards. This satisfies the original home-page requirement.
 - If voting is closed or not started, the home page stays browsable but the start button is replaced by the status message.
-- After submission, the thank-you screen offers no way back into the voting form. As a **soft deterrent only** (not security), the app remembers on that phone that a vote was submitted and shows "تم التصويت من هذا الجهاز" on revisits.
+- After submission, the thank-you screen offers a **"تصويت شخص آخر"** button that resets the form (name, selections, request ID) so another person can vote on the same phone. As a **soft deterrent only** (not security), the app remembers on that phone that a vote was submitted and shows "تم التصويت من هذا الجهاز" on revisits.
 
 ### 8.2 Card content
 
