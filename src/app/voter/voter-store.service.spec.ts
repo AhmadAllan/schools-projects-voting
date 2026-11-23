@@ -1,13 +1,15 @@
 import { VoterStore } from './voter-store.service';
 describe('حافظة الناخب', () => {
-  it('يستبدل اختيار الفئة ويلغي الاختيار ويقيد ثلاث فئات', () => {
+  it('يسمح بمشروعين من القسم نفسه ويقيد ثلاثة مشاريع ويلغي الاختيار', () => {
     const store = new VoterStore();
     store.toggleSelection(1, 10);
-    expect(store.selections().length).toBe(1);
     store.toggleSelection(1, 11);
-    expect(store.selections()).toEqual([{ sectionId: 1, projectId: 11 }]);
-    store.toggleSelection(1, 11);
-    expect(store.selections().length).toBe(0);
+    expect(store.selections()).toEqual([{ sectionId: 1, projectId: 10 }, { sectionId: 1, projectId: 11 }]);
+    store.toggleSelection(2, 20);
+    store.toggleSelection(3, 30);
+    expect(store.selections().length).toBe(3);
+    store.toggleSelection(1, 10);
+    expect(store.selections()).toEqual([{ sectionId: 1, projectId: 11 }, { sectionId: 2, projectId: 20 }]);
   });
   it('يعيد استخدام requestId نفسه ويخلق معرفًا جديدًا عند إعادة الضبط', () => {
     const store = new VoterStore();

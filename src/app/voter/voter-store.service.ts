@@ -10,9 +10,8 @@ export class VoterStore {
   readonly step = signal(0);
   toggleSelection(sectionId: number, projectId: number) {
     const current = this.selections();
-    const existing = current.find((selection) => selection.sectionId === sectionId);
-    if (existing?.projectId === projectId) this.selections.set(current.filter((selection) => selection.sectionId !== sectionId));
-    else if (existing) this.selections.set(current.map((selection) => selection.sectionId === sectionId ? { sectionId, projectId } : selection));
+    const existing = current.find((selection) => selection.projectId === projectId);
+    if (existing) this.selections.set(current.filter((selection) => selection.projectId !== projectId));
     else if (current.length < 3) this.selections.set([...current, { sectionId, projectId }]);
   }
   reset() {
