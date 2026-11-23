@@ -10,12 +10,12 @@ export function validateSubmission(body: VoteRequest) {
   if (!Array.isArray(body.selections) || body.selections.length < 1 || body.selections.length > 3) {
     return { error: 'VALIDATION_ERROR', message: 'اختر مشروعاً واحداً على الأقل وبحد أقصى ثلاثة مشاريع' };
   }
-  const sections = new Set<number>();
+  const projects = new Set<number>();
   for (const selection of body.selections as Selection[]) {
-    if (!Number.isInteger(selection.sectionId) || !Number.isInteger(selection.projectId) || sections.has(selection.sectionId)) {
-      return { error: 'VALIDATION_ERROR', message: 'اختيار فئة أو مشروع غير صالح' };
+    if (!Number.isInteger(selection.sectionId) || !Number.isInteger(selection.projectId) || projects.has(selection.projectId)) {
+      return { error: 'VALIDATION_ERROR', message: 'لا يمكن اختيار المشروع نفسه مرتين' };
     }
-    sections.add(selection.sectionId);
+    projects.add(selection.projectId);
   }
   return {};
 }
