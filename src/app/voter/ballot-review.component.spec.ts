@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { BallotReviewComponent, parseSubmitError, ReviewItem, SubmitError } from './ballot-review.component';
+import { Selection } from '../core/models';
 
 const ITEMS: ReviewItem[] = [
-  { sectionName: 'الروبوتات', projectName: 'مشروع القمر', schoolName: 'مدرسة النور' },
-  { sectionName: 'الطاقة', projectName: 'مشروع الشمس', schoolName: 'مدرسة السلام' },
+  { selection: { sectionId: 1, projectId: 11 }, sectionName: 'الروبوتات', projectName: 'مشروع القمر', schoolName: 'مدرسة النور' },
+  { selection: { sectionId: 2, projectId: 21 }, sectionName: 'الطاقة', projectName: 'مشروع الشمس', schoolName: 'مدرسة السلام' },
 ];
 
 describe('شاشة مراجعة الاختيارات', () => {
@@ -54,5 +55,27 @@ describe('شاشة مراجعة الاختيارات', () => {
     expect(parseSubmitError({ error: { error: 'DUPLICATE_NAME', message: 'مكرر' } })).toEqual({ message: 'مكرر', duplicate: true });
     expect(parseSubmitError({ error: { error: 'VALIDATION_ERROR', message: 'آخر' } })).toEqual({ message: 'آخر', duplicate: false });
     expect(parseSubmitError(new Error('network'))).toEqual({ message: 'تعذر إرسال الأصوات. حاول مرة أخرى.', duplicate: false });
+  });
+
+  it('زر الإزالة يرسل اختيار العنصر نفسه', async () => {
+    const fixture = await render();
+    const removed: Selection[] = [];
+    fixture.componentInstance.remove.subscribe((selection) => removed.push(selection));
+    const el = fixture.nativeElement as HTMLElement;
+    const buttons = Array.from(el.querySelectorAll<HTMLButtonElement>('button')).filter((b) => b.textContent?.trim() === 'إزالة');
+    expect(buttons.length).toBe(2);
+    buttons[0]!.click();
+    expect(removed).toEqual([{ sectionId: 1, projectId: 11 }]);
+  });
+
+  it('زر الرجوع والخلفية يرسلان back', async () => {
+    const fixture = await render();
+    const backs: void[] = [];
+    fixture.componentInstance.back.subscribe(() => backs.push(undefined));
+    const el = fixture.nativeElement as HTMLElement;
+    Array.from(el.querySelectorAll<HTMLButtonElement>('button')).find((b) => b.textContent?.includes('رجوع للتعديل'))!.click();
+    expect(backs.length).toBe(1);
+    (el.querySelector('.scrim') as HTMLElement).click();
+    expect(backs.length).toBe(2);
   });
 });
