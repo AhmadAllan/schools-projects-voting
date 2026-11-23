@@ -59,7 +59,7 @@ describe('شاشة الكشك', () => {
     const el = fixture.nativeElement;
     el.querySelector<HTMLButtonElement>('app-project-card .vote-btn')!.click();
     await fixture.whenStable();
-    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('إنهاء التصويت'))!.click();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('مراجعة الأصوات'))!.click();
     await fixture.whenStable();
     Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('تأكيد وإرسال'))!.click();
     TestBed.inject(HttpTestingController).expectOne('/api/kiosk/votes').flush({ error: 'OK', message: 'تم' });
@@ -82,7 +82,7 @@ describe('شاشة الكشك', () => {
     const el = fixture.nativeElement as HTMLElement;
     el.querySelector<HTMLButtonElement>('app-project-card .vote-btn')!.click();
     await fixture.whenStable();
-    const finish = Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('إنهاء التصويت'))!;
+    const finish = Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('مراجعة الأصوات'))!;
     expect(finish.disabled).toBe(false);
     finish.click();
     await fixture.whenStable();

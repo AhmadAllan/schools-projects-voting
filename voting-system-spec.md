@@ -12,7 +12,7 @@
 
 ## 1. Overview
 
-A web-based voting system for a school competition. Projects (websites, apps, and so on) are grouped into **sections** (categories such as "Best Website" or "Best App"), and each project belongs to one **school**. Voters choose up to **3 projects in total, at most one per section**, after entering their four-part Arabic name.
+A web-based voting system for a school competition. Projects (websites, apps, and so on) are grouped into **sections** (categories such as "Best Website" or "Best App"), and each project belongs to one **school**. Voters choose up to **3 distinct projects in total, from any sections**, after entering their four-part Arabic name.
 
 Voting happens through two channels:
 
@@ -31,7 +31,7 @@ An admin dashboard manages all content, controls the voting window, and produces
 | Back end | **Cloudflare Pages Functions** (serverless API) |
 | Database | **Cloudflare D1** (SQLite-compatible, shared by all devices) |
 | Hosting | Cloudflare Pages, default `*.pages.dev` address |
-| Vote limit | Max **3 votes in total**, at most **1 per section** |
+| Vote limit | Max **3 votes in total**, any sections, **distinct projects only** |
 | Minimum votes | At least **1** vote is required to submit *(assumption, see §15)* |
 | Project structure | Each project belongs to **exactly one section** and **one school** |
 | Voter's own school | Not asked, no restriction on voting for it |
@@ -204,7 +204,7 @@ CREATE TABLE votes (
   voter_id   TEXT NOT NULL REFERENCES voters(id) ON DELETE CASCADE,
   section_id INTEGER NOT NULL,
   project_id INTEGER NOT NULL,
-  UNIQUE (voter_id, section_id),                  -- max 1 vote per section
+  UNIQUE (voter_id, project_id),                  -- no voting for the same project twice
   FOREIGN KEY (project_id, section_id) REFERENCES projects(id, section_id)  -- project must belong to that section
 );
 CREATE INDEX idx_votes_project ON votes(project_id);
@@ -326,7 +326,7 @@ if mode == 'auto'   → open only if voting_start <= now <= voting_end
 
 1. Voting is currently **open** (§6.4).
 2. `selections` contains **1 to 3** items.
-3. **No two selections share a section** (also enforced by `UNIQUE(voter_id, section_id)`).
+3. **No two selections share a project** (also enforced by `UNIQUE(voter_id, project_id)`). Multiple selections in the same section are allowed.
 4. Every `projectId` exists, is **active**, and **belongs to the given `sectionId`** (also enforced by the composite FK).
 5. Name parts pass §7.2.
 6. `requestId` is a valid UUID. If it already exists, return `ALREADY_SAVED` and insert nothing.
@@ -377,11 +377,12 @@ On **phones** the voter sees the same warning with wording suited to a voter. On
 
 ### 7.4 Selection behavior in the UI
 
-- Each section shows its project cards. Tapping a card selects it. Tapping another card in the **same section replaces** the selection. Tapping the selected card again **deselects** it.
-- A live counter shows "اخترت N من 3".
-- When 3 sections already have a selection, cards in other sections are disabled with a short message. The voter must deselect one to change.
+- Projects are browsed on one page with **filter tabs per section ("All" + each category with counts), search, and alphabetical sort**. Each card shows the category badge, team/school, a 2-line description, a **Details dialog** (full description, school, "Visit project" link when a URL exists), and a **Vote / Selected toggle button**.
+- Tapping the vote button selects a project; tapping it again **deselects** it and frees a vote slot.
+- A live counter shows "الأصوات المستخدمة: N من 3" with three dot indicators, in the header and on the ballot page.
+- When 3 projects are selected, the other cards' vote buttons are **disabled** with a message telling the voter to remove one of the 3 selections to change a vote.
+- The **Review & Submit drawer** lists the selected projects with a remove button per vote and the warning that votes cannot be changed after sending; "رجوع للتعديل" returns to the ballot.
 - The Submit/Continue button is disabled until at least 1 project is selected.
-- A **review screen** lists the choices and warns that votes cannot be changed after sending.
 - The submit button is disabled while the request is in flight (prevents double taps). A retry after a network failure reuses the same `requestId`.
 
 ---
@@ -521,8 +522,8 @@ The whole UI is Arabic. Numbers use Western digits (0–9). Suggested copy (fina
 | Name step title | أدخل اسمك الرباعي |
 | Name fields | الاسم الأول · اسم الأب · اسم الجد · اسم العائلة |
 | Name error | يجب أن يتكوّن كل اسم من 3 أحرف عربية على الأقل |
-| Selection hint | اختر مشروعاً واحداً كحدٍّ أقصى من كل فئة، وبحدٍّ أقصى 3 أصوات |
-| Counter | اخترت {n} من 3 |
+| Selection hint | اختر حتى 3 مشاريع من أي فئة |
+| Counter | الأصوات المستخدمة: {n} من 3 |
 | Max reached | وصلت إلى الحد الأقصى (3 أصوات). ألغِ اختياراً لتتمكن من تغييره |
 | Minimum | اختر مشروعاً واحداً على الأقل |
 | Review title | مراجعة اختياراتك |
@@ -640,7 +641,7 @@ Local development: `npx wrangler pages dev dist/voting-app/browser --d1 DB=schoo
 
 - [ ] Home page shows sections, each with cards (image, name, description, school); "Visit project" appears only when a URL exists
 - [ ] Name step rejects empty fields, fewer than 3 letters, Latin letters, and digits
-- [ ] A voter cannot choose two projects in the same section, or more than 3 in total, in the UI **and** when calling the API directly (tested with a hand-crafted request)
+- [ ] A voter cannot choose the same project twice or more than 3 projects in total, in the UI **and** when calling the API directly (tested with a hand-crafted request); two votes in the **same section are accepted**
 - [ ] A voter cannot submit with 0 selections
 - [ ] A voter cannot vote for a project that does not belong to the given section or is inactive
 - [ ] Voting is rejected before the start, after the end, and when forced closed. It is accepted when forced open

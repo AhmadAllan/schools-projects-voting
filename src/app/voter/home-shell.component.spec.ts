@@ -74,7 +74,7 @@ describe('الشاشة الرئيسية بتبويبين', () => {
     const el = fixture.nativeElement as HTMLElement;
     el.querySelector<HTMLButtonElement>('app-project-card .vote-btn')!.click();
     await fixture.whenStable();
-    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'متابعة')!.click();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'مراجعة الأصوات')!.click();
     await fixture.whenStable();
     const input = el.querySelector<HTMLInputElement>('input')!;
     input.value = 'سارة';
@@ -97,7 +97,7 @@ describe('الشاشة الرئيسية بتبويبين', () => {
     const el = fixture.nativeElement as HTMLElement;
     el.querySelector<HTMLButtonElement>('app-project-card .vote-btn')!.click();
     await fixture.whenStable();
-    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'متابعة')!.click();
+    Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'مراجعة الأصوات')!.click();
     await fixture.whenStable();
     const inputs = Array.from(el.querySelectorAll('input'));
     ['محمد', 'أحمد', 'خالد', 'العبدالله'].forEach((value, index) => {
