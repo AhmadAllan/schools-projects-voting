@@ -24,7 +24,7 @@ const FULL_SELECTIONS: Selection[] = [
   { sectionId: 3, projectId: 31 },
 ];
 
-describe('بطاقات الاقتراع المشتركة', () => {
+describe('صفحة الاقتراع', () => {
   async function render(inputs: { ballot?: Ballot | null; selections?: Selection[]; loading?: boolean; error?: string } = {}) {
     const fixture = TestBed.createComponent(BallotCardsComponent);
     fixture.componentRef.setInput('ballot', inputs.ballot ?? null);
@@ -35,13 +35,23 @@ describe('بطاقات الاقتراع المشتركة', () => {
     return fixture;
   }
 
-  function cards(el: HTMLElement) { return Array.from(el.querySelectorAll<HTMLButtonElement>('.project-card')); }
+  function cardEls(el: HTMLElement) { return Array.from(el.querySelectorAll('app-project-card')); }
+  function cardsByName(el: HTMLElement, name: string) { return cardEls(el).filter((c) => c.textContent?.includes(name)); }
+  function voteButton(card: Element) { return card.querySelector<HTMLButtonElement>('button.vote-btn')!; }
+  function tabButtons(el: HTMLElement) { return Array.from(el.querySelectorAll<HTMLButtonElement>('.filter-tabs button')); }
+  function searchInput(el: HTMLElement) { return el.querySelector<HTMLInputElement>('input[type="search"]')!; }
+  function sortSelect(el: HTMLElement) { return el.querySelector<HTMLSelectElement>('select')!; }
+
+  async function type(fixture: { whenStable: () => Promise<unknown> }, input: HTMLInputElement, value: string) {
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+  }
 
   it('يعرض حالة التحميل', async () => {
-    const fixture = await render({ loading: true, ballot: BALLOT });
-    const el = fixture.nativeElement as HTMLElement;
+    const el = (await render({ loading: true, ballot: BALLOT })).nativeElement as HTMLElement;
     expect(el.textContent).toContain('جارٍ تحميل المشاريع…');
-    expect(el.querySelector('.project-card')).toBeNull();
+    expect(el.querySelector('app-project-card')).toBeNull();
   });
 
   it('يعرض الخطأ وزر إعادة المحاولة', async () => {
@@ -51,41 +61,111 @@ describe('بطاقات الاقتراع المشتركة', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(el.textContent).toContain('تعذر تحميل المشاريع.');
     const retry = Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'إعادة المحاولة')!;
-    expect(retry).toBeTruthy();
     retry.click();
     expect(retried.length).toBe(1);
   });
 
   it('يعرض حالة الفراغ عند اقتراع بلا مشاريع', async () => {
-    const fixture = await render({ ballot: { sections: [], projects: [] } });
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('لا توجد مشاريع بعد.');
+    const el = (await render({ ballot: { sections: [], projects: [] } })).nativeElement as HTMLElement;
+    expect(el.textContent).toContain('لا توجد مشاريع بعد.');
   });
 
-  it('البطاقة المختارة تحمل aria-pressed=true والأخرى false', async () => {
+  it('يعرض تبويبات مع عدد المشاريع لكل فئة', async () => {
+    const el = (await render({ ballot: BALLOT })).nativeElement as HTMLElement;
+    const tabs = tabButtons(el);
+    expect(tabs.length).toBe(5);
+    expect(tabs[0].textContent).toContain('الكل');
+    expect(tabs[0].textContent).toContain('5');
+    const robots = tabs.find((t) => t.textContent?.includes('الروبوتات'))!;
+    expect(robots.textContent).toContain('2');
+  });
+
+  it('اختيار تبويب فئة يعرض مشاريعها فقط', async () => {
+    const fixture = await render({ ballot: BALLOT });
+    const el = fixture.nativeElement as HTMLElement;
+    expect(cardEls(el).length).toBe(5);
+    tabButtons(el).find((t) => t.textContent?.includes('الروبوتات'))!.click();
+    await fixture.whenStable();
+    expect(cardEls(el).length).toBe(2);
+    expect(cardEls(el).every((c) => c.textContent?.includes('الروبوتات'))).toBe(true);
+  });
+
+  it('البحث يرشّح بالاسم والمدرسة ويتجاهل الفراغات الزائدة', async () => {
+    const fixture = await render({ ballot: BALLOT });
+    const el = fixture.nativeElement as HTMLElement;
+    await type(fixture, searchInput(el), 'مشروع الشمس');
+    expect(cardEls(el).length).toBe(1);
+    expect(cardsByName(el, 'مشروع الشمس').length).toBe(1);
+    await type(fixture, searchInput(el), '  مشروع   القمر ');
+    expect(cardsByName(el, 'مشروع القمر').length).toBe(1);
+    await type(fixture, searchInput(el), 'مدرسة النهى');
+    expect(cardsByName(el, 'مشروع المريخ').length).toBe(1);
+    await type(fixture, searchInput(el), 'كلمة غير موجودة');
+    expect(el.textContent).toContain('لا توجد نتائج مطابقة لبحثك');
+    await type(fixture, searchInput(el), '');
+    expect(cardEls(el).length).toBe(5);
+  });
+
+  it('أعداد التبويبات لا تتأثر بالبحث', async () => {
+    const fixture = await render({ ballot: BALLOT });
+    const el = fixture.nativeElement as HTMLElement;
+    await type(fixture, searchInput(el), 'مشروع الشمس');
+    const tabs = tabButtons(el);
+    expect(tabs[0].textContent).toContain('5');
+    expect(tabs.find((t) => t.textContent?.includes('الروبوتات'))!.textContent).toContain('2');
+  });
+
+  it('الترتيب الأبجدي يرتّب المشاريع بالاسم', async () => {
+    const fixture = await render({ ballot: BALLOT });
+    const el = fixture.nativeElement as HTMLElement;
+    sortSelect(el).value = 'name';
+    sortSelect(el).dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    const names = cardEls(el).map((c) => c.querySelector('h3')?.textContent?.trim());
+    const sorted = [...names].sort((a, b) => (a ?? '').localeCompare(b ?? '', 'ar'));
+    expect(names).toEqual(sorted);
+  });
+
+  it('العدّاد الحي وتنبيه الحد الأقصى عند 3 اختيارات', async () => {
+    const open = (await render({ ballot: BALLOT, selections: FULL_SELECTIONS })).nativeElement as HTMLElement;
+    expect(open.textContent).toContain('الأصوات المستخدمة: 3 من 3');
+    const notice = open.querySelector('.limit-notice');
+    expect(notice?.getAttribute('role')).toBe('status');
+    expect(notice?.textContent).toContain('وصلت إلى الحد الأقصى (3 أصوات)');
+    const moon = cardsByName(open, 'مشروع القمر')[0];
+    const rocket = cardsByName(open, 'مشروع الصاروخ')[0];
+    expect(voteButton(rocket).disabled).toBe(true);
+    expect(voteButton(moon).disabled).toBe(false);
+    const partial = (await render({ ballot: BALLOT, selections: FULL_SELECTIONS.slice(0, 2) })).nativeElement as HTMLElement;
+    expect(partial.querySelector('.limit-notice')).toBeNull();
+    expect(voteButton(cardsByName(partial, 'مشروع الصاروخ')[0]).disabled).toBe(false);
+  });
+
+  it('نافذة التفاصيل تعرض المشروع وإغلاقها لا يبدّل الاختيار', async () => {
     const fixture = await render({ ballot: BALLOT, selections: [{ sectionId: 1, projectId: 11 }] });
+    const toggles: Selection[] = [];
+    fixture.componentInstance.toggle.subscribe((selection) => toggles.push(selection));
     const el = fixture.nativeElement as HTMLElement;
-    const moon = cards(el).find((card) => card.textContent?.includes('مشروع القمر'))!;
-    const mars = cards(el).find((card) => card.textContent?.includes('مشروع المريخ'))!;
-    expect(moon.getAttribute('aria-pressed')).toBe('true');
-    expect(moon.classList.contains('selected')).toBe(true);
-    expect(mars.getAttribute('aria-pressed')).toBe('false');
-    expect(mars.classList.contains('selected')).toBe(false);
+    const dialog = el.querySelector('app-project-details-dialog')!;
+    expect((dialog as HTMLElement).textContent).not.toContain('مشروع القمر');
+    Array.from(cardsByName(el, 'مشروع القمر')[0].querySelectorAll('button')).find((b) => b.textContent?.trim() === 'التفاصيل')!.click();
+    await fixture.whenStable();
+    expect((dialog as HTMLElement).textContent).toContain('مشروع القمر');
+    Array.from(dialog.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'إغلاق')!.click();
+    await fixture.whenStable();
+    expect(toggles.length).toBe(0);
   });
 
-  it('تعطيل بطاقات قسم رابع بعد 3 اختيارات', async () => {
-    const fixture = await render({ ballot: BALLOT, selections: FULL_SELECTIONS });
-    const el = fixture.nativeElement as HTMLElement;
-    const rocket = cards(el).find((card) => card.textContent?.includes('مشروع الصاروخ'))!;
-    const mars = cards(el).find((card) => card.textContent?.includes('مشروع المريخ'))!;
-    expect(rocket.disabled).toBe(true);
-    expect(mars.disabled).toBe(false);
-  });
-
-  it('النقر يرسل اختيار القسم والمشروع', async () => {
+  it('زر التصويت يرسل القسم والمشروع حتى من الفئة نفسها', async () => {
     const fixture = await render({ ballot: BALLOT });
     const emitted: Selection[] = [];
     fixture.componentInstance.toggle.subscribe((selection) => emitted.push(selection));
-    cards(fixture.nativeElement as HTMLElement).find((card) => card.textContent?.includes('مشروع القمر'))!.click();
-    expect(emitted).toEqual([{ sectionId: 1, projectId: 11 }]);
+    const el = fixture.nativeElement as HTMLElement;
+    voteButton(cardsByName(el, 'مشروع القمر')[0]).click();
+    voteButton(cardsByName(el, 'مشروع المريخ')[0]).click();
+    expect(emitted).toEqual([
+      { sectionId: 1, projectId: 11 },
+      { sectionId: 1, projectId: 12 },
+    ]);
   });
 });

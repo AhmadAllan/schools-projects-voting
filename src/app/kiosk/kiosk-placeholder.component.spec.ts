@@ -57,7 +57,7 @@ describe('شاشة الكشك', () => {
   async function atThankYou(fixture: { whenStable: () => Promise<unknown>; nativeElement: HTMLElement; componentInstance: KioskPlaceholderComponent }) {
     await atSelection(fixture);
     const el = fixture.nativeElement;
-    el.querySelector<HTMLButtonElement>('.project-card')!.click();
+    el.querySelector<HTMLButtonElement>('app-project-card .vote-btn')!.click();
     await fixture.whenStable();
     Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('إنهاء التصويت'))!.click();
     await fixture.whenStable();
@@ -71,7 +71,7 @@ describe('شاشة الكشك', () => {
     const fixture = await kiosk();
     await atSelection(fixture);
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.querySelector('.project-card')).toBeTruthy();
+    expect(el.querySelector('app-project-card')).toBeTruthy();
     expect(el.textContent).toContain('مشروع القمر');
     expect(el.textContent).not.toContain('راجع اختياراتك');
   });
@@ -80,7 +80,7 @@ describe('شاشة الكشك', () => {
     const fixture = await kiosk();
     await atSelection(fixture);
     const el = fixture.nativeElement as HTMLElement;
-    el.querySelector<HTMLButtonElement>('.project-card')!.click();
+    el.querySelector<HTMLButtonElement>('app-project-card .vote-btn')!.click();
     await fixture.whenStable();
     const finish = Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.includes('إنهاء التصويت'))!;
     expect(finish.disabled).toBe(false);
@@ -93,7 +93,7 @@ describe('شاشة الكشك', () => {
     const fixture = await kiosk();
     await atSelection(fixture);
     const el = fixture.nativeElement as HTMLElement;
-    el.querySelector<HTMLButtonElement>('.project-card')!.click();
+    el.querySelector<HTMLButtonElement>('app-project-card .vote-btn')!.click();
     await fixture.whenStable();
     const store = TestBed.inject(VoterStore);
     el.querySelector<HTMLButtonElement>('button.reset')!.click();
@@ -141,7 +141,7 @@ describe('شاشة الكشك', () => {
     const fixture = await kiosk();
     await atSelection(fixture);
     const el = fixture.nativeElement as HTMLElement;
-    el.querySelector<HTMLButtonElement>('.project-card')!.click();
+    el.querySelector<HTMLButtonElement>('app-project-card .vote-btn')!.click();
     await fixture.whenStable();
     const store = TestBed.inject(VoterStore);
     el.querySelector<HTMLButtonElement>('.admin-exit')!.click();

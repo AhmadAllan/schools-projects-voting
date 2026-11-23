@@ -72,7 +72,7 @@ describe('الشاشة الرئيسية بتبويبين', () => {
     http.expectOne('/api/public/ballot').flush(BALLOT);
     await drain(); await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-    el.querySelector<HTMLButtonElement>('.project-card')!.click();
+    el.querySelector<HTMLButtonElement>('app-project-card .vote-btn')!.click();
     await fixture.whenStable();
     Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'متابعة')!.click();
     await fixture.whenStable();
@@ -95,7 +95,7 @@ describe('الشاشة الرئيسية بتبويبين', () => {
     http.expectOne('/api/public/ballot').flush(BALLOT);
     await drain(); await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-    el.querySelector<HTMLButtonElement>('.project-card')!.click();
+    el.querySelector<HTMLButtonElement>('app-project-card .vote-btn')!.click();
     await fixture.whenStable();
     Array.from(el.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'متابعة')!.click();
     await fixture.whenStable();
